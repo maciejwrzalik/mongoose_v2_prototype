@@ -613,23 +613,8 @@ class Editor {
   }
 
   createNodeFromPayload(kind, variant) {
-    if (kind === 'container') {
-      if (variant === 'section') return new Section();
-      if (variant === 'card') return new Card();
-      if (variant === 'form') return new Form();
-    }
-    if (kind === 'component') {
-      if (variant === 'text') return new TextComponent();
-      if (variant === 'button') return new ButtonComponent();
-      if (variant === 'input') return new InputComponent();
-      if (variant === 'radiogroup') return new RadioGroupComponent();
-      if (variant === 'datagrid') return new DatagridComponent();
-      if (variant === 'tabs') return new TabsComponent();
-      if (variant === 'header') return new HeaderComponent();
-      // Add: List component
-      if (variant === 'list') return new ListComponent();
-    }
-    return null;
+    // Use the component factory
+    return window.componentFactory.create(kind, variant);
   }
 
   isInsideForm(el) {
@@ -699,6 +684,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Initialize component factory
+    if (window.componentFactory) {
+      window.componentFactory.initialize();
+    }
+    
     const canvas = document.getElementById('canvas') || document;
     applyFormClasses(canvas);
 

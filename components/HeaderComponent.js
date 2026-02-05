@@ -15,18 +15,22 @@ class HeaderComponent extends NodeComponent {
     children.className = 'children'; // must be direct child for editor drop logic
 
     // Default buttons
-    const btn1 = new ButtonComponent();
-    btn1.el.textContent = 'Export';
-    btn1.el.classList.add('btn-tertiary');
-    btn1.el.dataset.btnStyle = 'tertiary';
+    const btn1 = window.componentFactory.create('component', 'button');
+    if (btn1) {
+      btn1.el.textContent = 'Export';
+      btn1.el.classList.add('btn-tertiary');
+      btn1.el.dataset.btnStyle = 'tertiary';
+    }
 
-    const btn2 = new ButtonComponent();
-    btn2.el.textContent = 'Action 2';
-    btn2.el.classList.add('btn-icon');
-    btn2.el.dataset.btnStyle = 'icon';
+    const btn2 = window.componentFactory.create('component', 'button');
+    if (btn2) {
+      btn2.el.textContent = 'Action 2';
+      btn2.el.classList.add('btn-icon');
+      btn2.el.dataset.btnStyle = 'icon';
+    }
 
-    children.appendChild(btn1.el);
-    children.appendChild(btn2.el);
+    if (btn1) children.appendChild(btn1.el);
+    if (btn2) children.appendChild(btn2.el);
 
     wrapper.appendChild(title);
     wrapper.appendChild(children);
