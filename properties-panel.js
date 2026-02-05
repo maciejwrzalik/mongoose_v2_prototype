@@ -28,8 +28,7 @@ class PropertiesPanel {
     // Clear and build fresh panel
     this.container.innerHTML = '';
     
-    // Always show name and type
-    this._addNameField(node);
+    // Always show type
     this._addTypeField(node);
 
     // Get renderer for this variant
@@ -395,17 +394,6 @@ class PropertiesPanel {
    */
   bindEvents(node) {
     const variant = node.dataset.variant;
-
-    // Name binding
-    const nameInput = document.getElementById('prop-name');
-    if (nameInput) {
-      nameInput.addEventListener('input', () => {
-        node.dataset.name = nameInput.value.trim() || node.dataset.variant;
-        const dgTitle = node.querySelector('.datagrid-title');
-        if (dgTitle) dgTitle.textContent = node.dataset.name;
-        this.refreshOverlays();
-      });
-    }
 
     // Text content
     if (variant === 'text') {
