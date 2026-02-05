@@ -1,29 +1,29 @@
 // ===============================
 // Icon Manager
 // ===============================
-// Handles Figma icon loading and button icon picker injection
+// Handles SVG icon loading from assets and button icon picker injection
 
 class IconManager {
   constructor(editor) {
     this.editor = editor;
     this.propContainer = document.getElementById('propertiesContent');
     
-    // Icon registry: name -> dataUrl
+    // Icon registry: name -> file path
     this._iconRegistry = {};
     
-    // Figma symbol IDs from #get_design_context
-    this._figmaIconIds = {
-      compose: '111:12315',
-      delete: '111:12333',
-      'insert-image': '111:12324',
-      inventory: '111:12359',
-      print: '111:12370',
-      save: '111:12402',
-      url: '111:12365',
-      'user-profile': '111:12411'
+    // Icon names and corresponding SVG file paths
+    this._iconFiles = {
+      compose: 'assets/compose.svg',
+      delete: 'assets/delete.svg',
+      'insert-image': 'assets/insert-image.svg',
+      inventory: 'assets/inventory.svg',
+      print: 'assets/print.svg',
+      save: 'assets/save.svg',
+      url: 'assets/url.svg',
+      'user-profile': 'assets/user-profile.svg'
     };
     
-    this._ICON_OPTIONS = Object.keys(this._figmaIconIds);
+    this._ICON_OPTIONS = Object.keys(this._iconFiles);
     this._suspendIconInject = false;
     this._propMo = null;
     
@@ -32,7 +32,7 @@ class IconManager {
   
   _init() {
     // Kick off async icon loading
-    this._loadFigmaIcons();
+    this._loadSvgIcons();
     
     // Initialize existing buttons
     this._initializeExistingButtons();
@@ -42,27 +42,26 @@ class IconManager {
   }
   
   /**
-   * Load icons from Figma via get_design_context
+   * Load icons from assets folder SVG files
    */
-  async _loadFigmaIcons() {
-    if (typeof window.get_design_context !== 'function') return;
-    
-    const entries = Object.entries(this._figmaIconIds);
-    for (const [name, id] of entries) {
+  async _loadSvgIcons() {
+    const entries = Object.entries(this._iconFiles);
+    for (const [name, path] of entries) {
       try {
-        const ctx = await window.get_design_context(id);
-        let svg = ctx?.svg || ctx?.content || ctx?.node?.svg || ctx?.node?.content || '';
+        const response = await fetch(path);
+        if (!response.ok) continue;
+        
+        const svg = await response.text();
         if (typeof svg !== 'string' || !svg.includes('<svg')) continue;
         
-        // Encode for CSS url()
-        const encoded = encodeURIComponent(svg).replace(/%23/g, '%2523');
-        this._iconRegistry[name] = `url('data:image/svg+xml;utf8,${encoded}')`;
+        // Store file path for CSS background-image
+        this._iconRegistry[name] = `url('${path}')`;
       } catch (_) {
-        // Ignore errors, fallback to static
+        // Ignore errors, fallback to static or none
       }
     }
     
-    // Update options if any icons loaded
+    // Update options after loading
     if (Object.keys(this._iconRegistry).length) {
       this._ICON_OPTIONS = Object.keys(this._iconRegistry);
       // Rebuild picker for current selection if applicable
@@ -185,18 +184,18 @@ class IconManager {
         node.classList.add('btn-icon');
         node.dataset.btnStyle = 'icon';
         
-        // Apply Figma-loaded mask (if available) via CSS variable
-        const dataUrl = this._iconRegistry[v];
-        if (dataUrl) {
-          node.style.setProperty('--icon-mask', dataUrl);
+        // Apply SVG file path via CSS variable
+        const filePath = this._iconRegistry[v];
+        if (filePath) {
+          node.style.setProperty('--icon-url', filePath);
         } else {
-          node.style.removeProperty('--icon-mask');
+          node.style.removeProperty('--icon-url');
         }
         
         this.ensureIconVisual(node, v);
       } else {
         delete node.dataset.icon;
-        node.style.removeProperty('--icon-mask');
+        node.style.removeProperty('--icon-url');
         this.ensureIconVisual(node, null);
       }
       
