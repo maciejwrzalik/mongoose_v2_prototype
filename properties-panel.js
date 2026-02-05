@@ -1,430 +1,782 @@
+/**
+ * PropertiesPanel - Manages property editing for canvas elements
+ * Uses DOM API for security (no innerHTML)
+ * Extensible renderer pattern for component types
+ */
 class PropertiesPanel {
   constructor(container, editor) {
     this.container = container;
     this.editor = editor;
+    this.currentNode = null;
+    this._observers = new Map(); // Track observers for cleanup
   }
 
+  /**
+   * Show properties for a node, or empty state if no node
+   * @param {HTMLElement} node - The selected node
+   */
   show(node) {
+    // Clear previous observers
+    this._clearObservers();
+    this.currentNode = node;
+
     if (!node) {
-      this.container.innerHTML = '<p class="muted">Select an element to edit its properties.</p>';
+      this._showEmptyState();
       return;
     }
 
-    const variant = node.dataset.variant;
-    const name = node.dataset.name;
-    let extra = '';
+    // Clear and build fresh panel
+    this.container.innerHTML = '';
+    
+    // Always show name and type
+    this._addNameField(node);
+    this._addTypeField(node);
 
-    if (variant === 'text') {
-      extra = `<div class="form-group"><label for="prop-content">Content</label><input id="prop-content" type="text" value="${node.textContent}" /></div>`;
-    } else if (variant === 'button') {
-      extra = `
-        <div class="form-group">
-          <label for="prop-label">Label</label>
-          <input id="prop-label" type="text" value="${node.textContent}" />
-        </div>
-        <div class="form-group">
-          <label for="prop-btn-style">Style</label>
-          <select id="prop-btn-style">
-            <option value="primary">Primary</option>
-            <option value="secondary">Secondary</option>
-            <option value="tertiary">Tertiary</option>
-            <option value="icon">Icon</option>
-          </select>
-        </div>
-      `;
-    } else if (variant === 'input') {
-      extra = `
-        <div class="form-group"><label for="prop-label">Label</label><input id="prop-label" type="text" value="${node.querySelector('.comp-label').textContent}" /></div>
-        <div class="form-group"><label for="prop-placeholder">Placeholder</label><input id="prop-placeholder" type="text" value="${node.querySelector('.comp-body').getAttribute('placeholder') || ''}" /></div>
-      `;
-    } else if (variant === 'radiogroup') {
-      extra = `
-        <div class="form-group">
-          <label for="prop-rg-label">Group Label</label>
-          <input id="prop-rg-label" type="text" value="${node.querySelector('.comp-label')?.textContent || 'Radio Group'}" />
-        </div>
-      `;
-    } else if (variant === 'section' || variant === 'form' || variant === 'card' || variant === 'datagrid') {
-      extra = `
-          ${ (variant === 'section' || variant === 'form') ? `
-          <div class="form-group">
-            <label><input type="checkbox" id="prop-section-title-visible" /> Show Title</label>
-          </div>
-          <div class="form-group">
-            <label for="prop-section-title-text">Title Text</label>
-            <input id="prop-section-title-text" type="text" value="${node.dataset.title || (variant==='form'?'Form Title':'Section Title')}" />
-          </div>
-          ` : ''}
-          ${variant === 'card' ? `
-          <div class="form-group">
-            <label for="prop-card-title-text">Card Title</label>
-            <input id="prop-card-title-text" type="text" value="${node.dataset.title || 'Card'}" />
-          </div>
-          ` : ''}
-          ${variant === 'datagrid' ? `
-          <div class="form-group">
-            <label for="prop-dg-title-text">Datagrid Title</label>
-            <input id="prop-dg-title-text" type="text" value="${node.dataset.name || 'Datagrid'}" />
-          </div>
-          ` : ''}
-      `;
+    // Get renderer for this variant
+    const variant = node.dataset.variant;
+    const renderer = this._getRenderer(variant);
+    
+    if (renderer) {
+      renderer.call(this, node);
     }
 
-    this.container.innerHTML = `
-      <div class="form-group">
-        <label for="prop-name">Name</label>
-        <input id="prop-name" type="text" value="${name}" />
-      </div>
-      <div class="form-group">
-        <label>Type</label>
-        <input type="text" value="${node.dataset.kind} / ${variant}" disabled />
-      </div>
-      ${extra}
-      ${ (variant === 'section' || variant === 'form' || variant === 'card') ? `
-      <div class="prop-subsection">Content</div>
-      <div class="form-group">
-        <label for="prop-layout-type">Layout</label>
-        <select id="prop-layout-type">
-          <option value="grid">Grid</option>
-          <option value="flex">Flex</option>
-        </select>
-      </div>
-      <div id="prop-layout-options"></div>
-      ` : '' }
-      <div class="form-group">
-        <label>Grid Column Span</label>
-        <div id="prop-grid-column" class="segmented" role="radiogroup" aria-label="Grid Column Span">
-          ${[1,2,3,4].map(n=>`<button type="button" class="seg-btn ${ (node.dataset.gridColumn||'1')==n ? 'active':''}" data-span="${n}" role="radio" aria-checked="${(node.dataset.gridColumn||'1')==n}">${n}</button>`).join('')}
-        </div>
-      </div>
-    `;
+    // Add layout options for containers
+    if (['section', 'form', 'card'].includes(variant)) {
+      this._addLayoutSection(node);
+    }
 
+    // Add grid column span for all (if parent is grid)
+    this._addGridColumnSection(node);
+
+    // Bind events
     this.bindEvents(node);
   }
 
+  /**
+   * Show empty state
+   */
+  _showEmptyState() {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = 'Select an element to edit its properties.';
+    this.container.appendChild(p);
+  }
+
+  /**
+   * Add name field (universal)
+   */
+  _addNameField(node) {
+    const group = this._createFormGroup('Name');
+    const input = document.createElement('input');
+    input.id = 'prop-name';
+    input.type = 'text';
+    input.value = node.dataset.name || '';
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Add type field (read-only)
+   */
+  _addTypeField(node) {
+    const group = this._createFormGroup('Type');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = `${node.dataset.kind} / ${node.dataset.variant}`;
+    input.disabled = true;
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Get renderer function for a variant
+   * @param {string} variant - Component variant
+   * @returns {Function|null} Renderer function
+   */
+  _getRenderer(variant) {
+    const renderers = {
+      'text': this._renderText,
+      'button': this._renderButton,
+      'input': this._renderInput,
+      'radiogroup': this._renderRadioGroup,
+      'section': this._renderSection,
+      'form': this._renderSection, // Form uses same as section
+      'card': this._renderCard,
+      'datagrid': this._renderDatagrid,
+      'header': this._renderHeader,
+      'list': this._renderList,
+      'tabs': this._renderTabs
+    };
+
+    return renderers[variant] || null;
+  }
+
+  /**
+   * Render properties for Text component
+   */
+  _renderText(node) {
+    const group = this._createFormGroup('Content');
+    const input = document.createElement('input');
+    input.id = 'prop-content';
+    input.type = 'text';
+    input.value = node.textContent || '';
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Render properties for Button component
+   */
+  _renderButton(node) {
+    // Label
+    const labelGroup = this._createFormGroup('Label');
+    const labelInput = document.createElement('input');
+    labelInput.id = 'prop-label';
+    labelInput.type = 'text';
+    labelInput.value = node.textContent || '';
+    labelGroup.appendChild(labelInput);
+    this.container.appendChild(labelGroup);
+
+    // Style dropdown
+    const styleGroup = this._createFormGroup('Style');
+    const select = document.createElement('select');
+    select.id = 'prop-btn-style';
+    
+    const options = [
+      { value: 'primary', label: 'Primary' },
+      { value: 'secondary', label: 'Secondary' },
+      { value: 'tertiary', label: 'Tertiary' },
+      { value: 'icon', label: 'Icon' }
+    ];
+    
+    options.forEach(opt => {
+      const option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.label;
+      select.appendChild(option);
+    });
+    
+    select.value = node.dataset.btnStyle || 'primary';
+    styleGroup.appendChild(select);
+    this.container.appendChild(styleGroup);
+  }
+
+  /**
+   * Render properties for Input component
+   */
+  _renderInput(node) {
+    // Label
+    const labelGroup = this._createFormGroup('Label');
+    const labelInput = document.createElement('input');
+    labelInput.id = 'prop-label';
+    labelInput.type = 'text';
+    const labelEl = node.querySelector('.comp-label');
+    labelInput.value = labelEl ? labelEl.textContent : '';
+    labelGroup.appendChild(labelInput);
+    this.container.appendChild(labelGroup);
+
+    // Placeholder
+    const placeholderGroup = this._createFormGroup('Placeholder');
+    const placeholderInput = document.createElement('input');
+    placeholderInput.id = 'prop-placeholder';
+    placeholderInput.type = 'text';
+    const bodyEl = node.querySelector('.comp-body');
+    placeholderInput.value = bodyEl ? (bodyEl.getAttribute('placeholder') || '') : '';
+    placeholderGroup.appendChild(placeholderInput);
+    this.container.appendChild(placeholderGroup);
+  }
+
+  /**
+   * Render properties for RadioGroup component
+   */
+  _renderRadioGroup(node) {
+    const group = this._createFormGroup('Group Label');
+    const input = document.createElement('input');
+    input.id = 'prop-rg-label';
+    input.type = 'text';
+    const labelEl = node.querySelector('.comp-label');
+    input.value = labelEl ? labelEl.textContent : 'Radio Group';
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Render properties for Section component (shared with Form)
+   */
+  _renderSection(node) {
+    const variant = node.dataset.variant;
+
+    // Title visibility checkbox
+    const titleVisGroup = this._createFormGroup('');
+    const titleVisCheckbox = document.createElement('input');
+    titleVisCheckbox.id = 'prop-section-title-visible';
+    titleVisCheckbox.type = 'checkbox';
+    const titleVisLabel = document.createElement('label');
+    titleVisLabel.style.display = 'flex';
+    titleVisLabel.style.alignItems = 'center';
+    titleVisLabel.style.gap = '0.5rem';
+    titleVisLabel.appendChild(titleVisCheckbox);
+    titleVisLabel.appendChild(document.createTextNode('Show Title'));
+    titleVisGroup.appendChild(titleVisLabel);
+    this.container.appendChild(titleVisGroup);
+
+    // Title text
+    const titleGroup = this._createFormGroup('Title Text');
+    const titleInput = document.createElement('input');
+    titleInput.id = 'prop-section-title-text';
+    titleInput.type = 'text';
+    const titleEl = node.querySelector('.section-title');
+    titleInput.value = node.dataset.title || (titleEl ? titleEl.textContent : variant === 'form' ? 'Form Title' : 'Section Title');
+    titleGroup.appendChild(titleInput);
+    this.container.appendChild(titleGroup);
+
+    // Initialize checkbox state
+    const visible = node.dataset.titleVisible === 'true';
+    titleVisCheckbox.checked = visible;
+    if (titleEl) titleEl.hidden = !visible;
+  }
+
+  /**
+   * Render properties for Card component
+   */
+  _renderCard(node) {
+    const group = this._createFormGroup('Card Title');
+    const input = document.createElement('input');
+    input.id = 'prop-card-title-text';
+    input.type = 'text';
+    const labelEl = node.querySelector('.label');
+    input.value = node.dataset.title || (labelEl ? labelEl.textContent : 'Card');
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Render properties for Datagrid component
+   */
+  _renderDatagrid(node) {
+    const group = this._createFormGroup('Datagrid Title');
+    const input = document.createElement('input');
+    input.id = 'prop-dg-title-text';
+    input.type = 'text';
+    const titleEl = node.querySelector('.datagrid-title');
+    input.value = node.dataset.name || (titleEl ? titleEl.textContent : 'Datagrid');
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Render properties for Header component
+   */
+  _renderHeader(node) {
+    const group = this._createFormGroup('Header Content');
+    const input = document.createElement('input');
+    input.id = 'prop-header-content';
+    input.type = 'text';
+    input.value = node.textContent || 'Header';
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Render properties for List component
+   */
+  _renderList(node) {
+    const group = this._createFormGroup('List Title');
+    const input = document.createElement('input');
+    input.id = 'prop-list-title';
+    input.type = 'text';
+    input.value = node.dataset.title || 'List';
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Render properties for Tabs component
+   */
+  _renderTabs(node) {
+    const group = this._createFormGroup('Tabs Label');
+    const input = document.createElement('input');
+    input.id = 'prop-tabs-label';
+    input.type = 'text';
+    input.value = node.dataset.label || 'Tabs';
+    group.appendChild(input);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Add layout section for containers
+   */
+  _addLayoutSection(node) {
+    // Subsection title
+    const subtitle = document.createElement('div');
+    subtitle.className = 'prop-subsection';
+    subtitle.textContent = 'Content';
+    this.container.appendChild(subtitle);
+
+    // Layout type selector
+    const layoutGroup = this._createFormGroup('Layout');
+    const select = document.createElement('select');
+    select.id = 'prop-layout-type';
+    
+    ['grid', 'flex'].forEach(val => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val.charAt(0).toUpperCase() + val.slice(1);
+      select.appendChild(opt);
+    });
+    
+    select.value = node.dataset.layout || 'grid';
+    layoutGroup.appendChild(select);
+    this.container.appendChild(layoutGroup);
+
+    // Layout options container
+    const optionsContainer = document.createElement('div');
+    optionsContainer.id = 'prop-layout-options';
+    this.container.appendChild(optionsContainer);
+
+    // Populate initial layout options
+    this.applyLayoutOptions(node, select.value, optionsContainer);
+  }
+
+  /**
+   * Add grid column span section
+   */
+  _addGridColumnSection(node) {
+    const group = this._createFormGroup('Grid Column Span');
+    const radioGroup = document.createElement('div');
+    radioGroup.id = 'prop-grid-column';
+    radioGroup.className = 'segmented';
+    radioGroup.setAttribute('role', 'radiogroup');
+    radioGroup.setAttribute('aria-label', 'Grid Column Span');
+
+    const current = node.dataset.gridColumn || '1';
+    for (let i = 1; i <= 4; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'seg-btn';
+      btn.setAttribute('data-span', String(i));
+      btn.setAttribute('role', 'radio');
+      btn.setAttribute('aria-checked', String(i === parseInt(current)));
+      if (i === parseInt(current)) btn.classList.add('active');
+      btn.textContent = String(i);
+      radioGroup.appendChild(btn);
+    }
+
+    group.appendChild(radioGroup);
+    this.container.appendChild(group);
+  }
+
+  /**
+   * Utility: create a form group
+   */
+  _createFormGroup(labelText) {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    
+    if (labelText) {
+      const label = document.createElement('label');
+      label.textContent = labelText;
+      group.appendChild(label);
+    }
+    
+    return group;
+  }
+
+  /**
+   * Refresh overlays and tree after changes
+   */
   refreshOverlays() {
     this.editor.tree.update();
     this.editor.syncOverlays();
   }
 
+  /**
+   * Bind all events to form inputs
+   */
   bindEvents(node) {
-    // Name binding (+ sync dg title if present)
-    const nameInput = document.getElementById('prop-name');
-    nameInput.addEventListener('input', () => {
-      node.dataset.name = nameInput.value.trim() || node.dataset.variant;
-      const dgTitle = node.querySelector('.datagrid-title');
-      if (dgTitle) dgTitle.textContent = node.dataset.name;
-      this.refreshOverlays();
-    });
+    const variant = node.dataset.variant;
 
-    // Text
-    if (node.dataset.variant === 'text') {
-      const input = document.getElementById('prop-content');
-      input.addEventListener('input', () => {
-        node.textContent = input.value;
+    // Name binding
+    const nameInput = document.getElementById('prop-name');
+    if (nameInput) {
+      nameInput.addEventListener('input', () => {
+        node.dataset.name = nameInput.value.trim() || node.dataset.variant;
+        const dgTitle = node.querySelector('.datagrid-title');
+        if (dgTitle) dgTitle.textContent = node.dataset.name;
         this.refreshOverlays();
       });
     }
-    // Button
-    else if (node.dataset.variant === 'button') {
-      const input = document.getElementById('prop-label');
-      input.addEventListener('input', () => {
-        node.textContent = input.value;
-        this.refreshOverlays();
-      });
 
-      const styleSelect = document.getElementById('prop-btn-style');
-      const applyStyle = (el, val) => {
-        el.classList.remove('btn-secondary','btn-tertiary','btn-icon');
-        if (val === 'secondary') el.classList.add('btn-secondary');
-        else if (val === 'tertiary') el.classList.add('btn-tertiary');
-        else if (val === 'icon') el.classList.add('btn-icon');
-      };
-      if (styleSelect) {
-        styleSelect.value = node.dataset.btnStyle || 'primary';
-        applyStyle(node, styleSelect.value);
-        styleSelect.addEventListener('change', () => {
-          node.dataset.btnStyle = styleSelect.value;
-          applyStyle(node, styleSelect.value);
+    // Text content
+    if (variant === 'text') {
+      const input = document.getElementById('prop-content');
+      if (input) {
+        input.addEventListener('input', () => {
+          node.textContent = input.value;
           this.refreshOverlays();
         });
       }
-      return;
     }
-    // Input
-    else if (node.dataset.variant === 'input') {
+
+    // Button label and style
+    if (variant === 'button') {
       const labelInput = document.getElementById('prop-label');
-      labelInput.addEventListener('input', () => {
-        node.querySelector('.comp-label').textContent = labelInput.value;
-        this.refreshOverlays();
-      });
+      if (labelInput) {
+        labelInput.addEventListener('input', () => {
+          node.textContent = labelInput.value;
+          this.refreshOverlays();
+        });
+      }
+
+      const styleSelect = document.getElementById('prop-btn-style');
+      if (styleSelect) {
+        styleSelect.addEventListener('change', () => {
+          this._applyButtonStyle(node, styleSelect.value);
+          node.dataset.btnStyle = styleSelect.value;
+          this.refreshOverlays();
+        });
+        // Apply initial style
+        this._applyButtonStyle(node, styleSelect.value);
+      }
+    }
+
+    // Input label and placeholder
+    if (variant === 'input') {
+      const labelInput = document.getElementById('prop-label');
+      if (labelInput) {
+        labelInput.addEventListener('input', () => {
+          const labelEl = node.querySelector('.comp-label');
+          if (labelEl) labelEl.textContent = labelInput.value;
+          this.refreshOverlays();
+        });
+      }
+
       const placeholderInput = document.getElementById('prop-placeholder');
-      placeholderInput.addEventListener('input', () => {
-        node.querySelector('.comp-body').setAttribute('placeholder', placeholderInput.value);
-        this.refreshOverlays();
-      });
-      const gridSpanGroup = document.getElementById('prop-grid-column');
-      if (gridSpanGroup) {
-        const current = node.dataset.gridColumn || '1';
-        if (!node.dataset.gridColumn) node.dataset.gridColumn = current;
-        const buttons = gridSpanGroup.querySelectorAll('.seg-btn');
-        buttons.forEach(btn => {
-          btn.addEventListener('click', () => {
-            const val = btn.getAttribute('data-span');
-            node.dataset.gridColumn = val;
-            node.style.gridColumn = `span ${val}`;
-            buttons.forEach(b => {
-              const active = b === btn;
-              b.classList.toggle('active', active);
-              b.setAttribute('aria-checked', active);
-            });
-            this.refreshOverlays();
-          });
-          if (btn.getAttribute('data-span') === current) {
-            node.style.gridColumn = `span ${current}`;
-            btn.classList.add('active');
-            btn.setAttribute('aria-checked','true');
-          }
+      if (placeholderInput) {
+        placeholderInput.addEventListener('input', () => {
+          const bodyEl = node.querySelector('.comp-body');
+          if (bodyEl) bodyEl.setAttribute('placeholder', placeholderInput.value);
+          this.refreshOverlays();
         });
       }
     }
-    // Radio Group
-    else if (node.dataset.variant === 'radiogroup') {
+
+    // Radio group label
+    if (variant === 'radiogroup') {
       const groupLabel = document.getElementById('prop-rg-label');
       if (groupLabel) {
         groupLabel.addEventListener('input', () => {
-          const el = node.querySelector('.comp-label');
-          if (el) el.textContent = groupLabel.value;
+          const labelEl = node.querySelector('.comp-label');
+          if (labelEl) labelEl.textContent = groupLabel.value;
           this.refreshOverlays();
         });
       }
     }
-    // Containers and Datagrid
-    else if (node.dataset.variant === 'section' || node.dataset.variant === 'form' || node.dataset.variant === 'card' || node.dataset.variant === 'datagrid') {
-      // Section-only: show/hide title + title text
-      if (node.dataset.variant === 'section') {
-        const titleVisibleCheckbox = document.getElementById('prop-section-title-visible');
-        const titleInput = document.getElementById('prop-section-title-text');
-        const titleEl = node.querySelector('.section-title');
-        const visible = node.dataset.titleVisible === 'true';
-        titleVisibleCheckbox.checked = visible;
-        titleEl.hidden = !visible;
-        titleInput.value = node.dataset.title || titleEl.textContent || 'Section Title';
-        titleEl.textContent = titleInput.value;
-        titleVisibleCheckbox.addEventListener('change', () => {
-          const isOn = titleVisibleCheckbox.checked;
-          node.dataset.titleVisible = String(isOn);
-          titleEl.hidden = !isOn;
-          this.refreshOverlays();
-        });
-        titleInput.addEventListener('input', () => {
-          node.dataset.title = titleInput.value;
-          titleEl.textContent = titleInput.value;
+
+    // Section/Form title
+    if (variant === 'section' || variant === 'form') {
+      const titleVisCheckbox = document.getElementById('prop-section-title-visible');
+      const titleInput = document.getElementById('prop-section-title-text');
+      const titleEl = node.querySelector('.section-title');
+
+      if (titleVisCheckbox) {
+        titleVisCheckbox.addEventListener('change', () => {
+          node.dataset.titleVisible = String(titleVisCheckbox.checked);
+          if (titleEl) titleEl.hidden = !titleVisCheckbox.checked;
           this.refreshOverlays();
         });
       }
 
-      // Card title binding
-      if (node.dataset.variant === 'card') {
-        const cardTitleInput = document.getElementById('prop-card-title-text');
-        const labelEl = node.querySelector('.label');
-        if (cardTitleInput && labelEl) {
-          cardTitleInput.value = node.dataset.title || labelEl.textContent || 'Card';
-          labelEl.textContent = cardTitleInput.value;
-          cardTitleInput.addEventListener('input', () => {
+      if (titleInput) {
+        titleInput.addEventListener('input', () => {
+          node.dataset.title = titleInput.value;
+          if (titleEl) titleEl.textContent = titleInput.value;
+          this.refreshOverlays();
+        });
+      }
+    }
+
+    // Card title
+    if (variant === 'card') {
+      const cardTitleInput = document.getElementById('prop-card-title-text');
+      if (cardTitleInput) {
+        cardTitleInput.addEventListener('input', () => {
+          const labelEl = node.querySelector('.label');
+          if (labelEl) {
             const val = cardTitleInput.value.trim() || 'Card';
             node.dataset.title = val;
             labelEl.textContent = val;
             this.refreshOverlays();
-          });
-        }
-      }
-
-      // Layout select + options
-      const layoutSelect = document.getElementById('prop-layout-type');
-      const optionsContainer = document.getElementById('prop-layout-options');
-      if (layoutSelect) {
-        layoutSelect.value = node.dataset.layout || 'grid';
-        this.applyLayoutOptions(node, layoutSelect.value, optionsContainer);
-        layoutSelect.addEventListener('change', () => {
-          node.dataset.layout = layoutSelect.value;
-          this.applyLayoutOptions(node, layoutSelect.value, optionsContainer);
-          this.refreshOverlays();
+          }
         });
       }
+    }
 
-      // Datagrid title binding
-      if (node.dataset.variant === 'datagrid') {
-        const dgTitleInput = document.getElementById('prop-dg-title-text');
-        const dgTitleEl = node.querySelector('.datagrid-title');
-        if (dgTitleInput && dgTitleEl) {
-          dgTitleInput.value = node.dataset.name || dgTitleEl.textContent || 'Datagrid';
-          dgTitleInput.addEventListener('input', () => {
+    // Datagrid title
+    if (variant === 'datagrid') {
+      const dgTitleInput = document.getElementById('prop-dg-title-text');
+      if (dgTitleInput) {
+        dgTitleInput.addEventListener('input', () => {
+          const dgTitleEl = node.querySelector('.datagrid-title');
+          if (dgTitleEl) {
             const val = dgTitleInput.value.trim() || 'Datagrid';
             node.dataset.name = val;
             dgTitleEl.textContent = val;
             this.refreshOverlays();
-          });
-        }
+          }
+        });
       }
     }
 
-    // Universal grid span binding (enabled only if parent is grid)
-    const universalGridSpan = document.getElementById('prop-grid-column');
-    if (universalGridSpan && !universalGridSpan._bound) {
-      const buttons = universalGridSpan.querySelectorAll('.seg-btn');
-      if (!node.dataset.gridColumn) node.dataset.gridColumn = '1';
-      const current = node.dataset.gridColumn;
-      buttons.forEach(btn => {
-        const val = btn.getAttribute('data-span');
-        if (val === current) {
-          node.style.gridColumn = `span ${current}`;
-          btn.classList.add('active');
-          btn.setAttribute('aria-checked','true');
-        }
-        btn.addEventListener('click', () => {
-          node.dataset.gridColumn = val;
-          node.style.gridColumn = `span ${val}`;
-          buttons.forEach(b => {
-            const active = b === btn;
-            b.classList.toggle('active', active);
-            b.setAttribute('aria-checked', active);
-          });
+    // Layout selector and options
+    if (['section', 'form', 'card'].includes(variant)) {
+      const layoutSelect = document.getElementById('prop-layout-type');
+      const optionsContainer = document.getElementById('prop-layout-options');
+
+      if (layoutSelect) {
+        layoutSelect.addEventListener('change', () => {
+          node.dataset.layout = layoutSelect.value;
+          this.applyLayoutOptions(node, layoutSelect.value, optionsContainer);
+          this.bindLayoutOptionEvents(node); // Rebind layout option events
           this.refreshOverlays();
         });
-      });
-
-      const updateEnabledState = () => {
-        const parentContainer = node.parentElement && node.parentElement.closest('.container-node');
-        let isGrid = false;
-        if (parentContainer) {
-          const parentChildren = parentContainer.querySelector('.children');
-          const styleDisplay = parentChildren ? getComputedStyle(parentChildren).display : '';
-          const layoutAttr = parentContainer.dataset.layout || 'grid';
-          isGrid = (layoutAttr === 'grid') && (styleDisplay === 'grid');
-        }
-        universalGridSpan.setAttribute('aria-disabled', String(!isGrid));
-        universalGridSpan.classList.toggle('is-disabled', !isGrid);
-
-        let maxCols = 4;
-        if (isGrid) {
-          const parentCols = parentContainer && parentContainer.dataset.cols ? parseInt(parentContainer.dataset.cols,10) : NaN;
-          if (!isNaN(parentCols)) maxCols = parentCols;
-          if (isNaN(parentCols)) {
-            const c = parentContainer.querySelector('.children');
-            const cstyle = c && getComputedStyle(c);
-            const cols = cstyle && cstyle.gridTemplateColumns ? cstyle.gridTemplateColumns.split(' ').length : 4;
-            maxCols = cols;
-          }
-        }
-        buttons.forEach(b => {
-          const val = parseInt(b.getAttribute('data-span'),10);
-          const disable = !isGrid || val > maxCols;
-          b.disabled = disable;
-        });
-
-        if (isGrid) {
-          const curr = parseInt(node.dataset.gridColumn||'1',10);
-          if (curr > maxCols) {
-            node.dataset.gridColumn = String(maxCols);
-            node.style.gridColumn = `span ${maxCols}`;
-            buttons.forEach(b => {
-              const active = parseInt(b.getAttribute('data-span'),10) === maxCols;
-              b.classList.toggle('active', active);
-              b.setAttribute('aria-checked', String(active));
-            });
-          }
-        }
-      };
-
-      updateEnabledState();
-      const parentContainer = node.parentElement && node.parentElement.closest('.container-node');
-      if (parentContainer) {
-        const spanObs = new MutationObserver(updateEnabledState);
-        spanObs.observe(parentContainer, { attributes: true, attributeFilter: ['data-layout', 'data-cols', 'style'] });
-        universalGridSpan._obs = spanObs;
       }
-      universalGridSpan._bound = true;
     }
 
-    // Also bind Form title controls (same as section, but for 'form' variant)
-    if (node.dataset.variant === 'form') {
-      const titleVisibleCheckbox = document.getElementById('prop-section-title-visible');
-      const titleInput = document.getElementById('prop-section-title-text');
-      const titleEl = node.querySelector('.section-title');
-      const visible = node.dataset.titleVisible === 'true';
-      if (titleVisibleCheckbox) {
-        titleVisibleCheckbox.checked = visible;
-        titleEl.hidden = !visible;
-        titleVisibleCheckbox.addEventListener('change', () => {
-          const isOn = titleVisibleCheckbox.checked;
-          node.dataset.titleVisible = String(isOn);
-          titleEl.hidden = !isOn;
-          this.refreshOverlays();
-        });
-      }
-      if (titleInput) {
-        titleInput.value = node.dataset.title || 'Form Title';
-        titleEl.textContent = titleInput.value;
-        titleInput.addEventListener('input', () => {
-          node.dataset.title = titleInput.value;
-          titleEl.textContent = titleInput.value;
-          this.refreshOverlays();
-        });
-      }
+    // Grid column span
+    const gridSpanGroup = document.getElementById('prop-grid-column');
+    if (gridSpanGroup) {
+      this.bindGridColumnEvents(node);
     }
   }
 
-  applyLayoutOptions(node, type, container) {
-    const children = node.querySelector('.children');
-    if (type === 'grid') {
-      children.style.display = 'grid';
-      children.style.flexDirection = '';
-      if (!node.dataset.cols) {
-        if (node.dataset.variant === 'section' || node.dataset.variant === 'form') node.dataset.cols = '4';
-        else if (node.dataset.variant === 'card') node.dataset.cols = '1';
-        else node.dataset.cols = '3';
-      }
-      const current = node.dataset.cols;
-      container.innerHTML = `
-        <div class="form-group">
-          <label>Columns</label>
-          <div class="segmented" role="radiogroup" aria-label="Grid Columns">
-            ${[1,2,3,4].map(n=>`<button type="button" class="seg-btn" data-cols="${n}" role="radio" aria-checked="${current==n}" aria-label="${n} columns">${n}</button>`).join('')}
-          </div>
-        </div>`;
-      children.style.gridTemplateColumns = `repeat(${current}, 1fr)`;
-      const btns = container.querySelectorAll('.segmented .seg-btn');
-      btns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const val = btn.getAttribute('data-cols');
-          node.dataset.cols = val;
-          children.style.gridTemplateColumns = `repeat(${val}, 1fr)`;
-          btns.forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-checked', b === btn); });
-          this.refreshOverlays();
+  /**
+   * Bind grid column span button events
+   */
+  bindGridColumnEvents(node) {
+    const gridSpanGroup = document.getElementById('prop-grid-column');
+    if (!gridSpanGroup) return;
+
+    const buttons = gridSpanGroup.querySelectorAll('.seg-btn');
+    if (!node.dataset.gridColumn) node.dataset.gridColumn = '1';
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-span');
+        node.dataset.gridColumn = val;
+        node.style.gridColumn = `span ${val}`;
+        buttons.forEach(b => {
+          const active = b === btn;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-checked', String(active));
         });
-        if (btn.getAttribute('data-cols') === current) btn.classList.add('active');
-      });
-    } else if (type === 'flex') {
-      children.style.display = 'flex';
-      children.style.gridTemplateColumns = '';
-      container.innerHTML = `
-        <div class="form-group">
-          <label for="prop-flex-dir">Flex Direction</label>
-          <select id="prop-flex-dir">
-            <option value="row">Row</option>
-            <option value="column">Column</option>
-          </select>
-        </div>
-      `;
-      const dirSelect = document.getElementById('prop-flex-dir');
-      dirSelect.value = node.dataset.flexDir || 'row';
-      children.style.flexDirection = dirSelect.value;
-      dirSelect.addEventListener('change', () => {
-        node.dataset.flexDir = dirSelect.value;
-        children.style.flexDirection = dirSelect.value;
         this.refreshOverlays();
       });
+    });
+
+    // Setup parent mutation observer to update enabled state
+    this._setupGridSpanObserver(node, buttons);
+  }
+
+  /**
+   * Setup observer for parent grid column updates
+   */
+  _setupGridSpanObserver(node, buttons) {
+    const parentContainer = node.parentElement?.closest('.container-node');
+    if (!parentContainer) return;
+
+    const updateEnabledState = () => {
+      const parentChildren = parentContainer.querySelector('.children');
+      const styleDisplay = parentChildren ? getComputedStyle(parentChildren).display : '';
+      const layoutAttr = parentContainer.dataset.layout || 'grid';
+      const isGrid = (layoutAttr === 'grid') && (styleDisplay === 'grid');
+
+      const gridSpanGroup = document.getElementById('prop-grid-column');
+      if (gridSpanGroup) {
+        gridSpanGroup.setAttribute('aria-disabled', String(!isGrid));
+        gridSpanGroup.classList.toggle('is-disabled', !isGrid);
+      }
+
+      let maxCols = 4;
+      if (isGrid) {
+        const parentCols = parentContainer.dataset.cols ? parseInt(parentContainer.dataset.cols, 10) : NaN;
+        if (!isNaN(parentCols)) {
+          maxCols = parentCols;
+        }
+      }
+
+      buttons.forEach(b => {
+        const val = parseInt(b.getAttribute('data-span'), 10);
+        b.disabled = !isGrid || val > maxCols;
+      });
+
+      if (isGrid) {
+        const curr = parseInt(node.dataset.gridColumn || '1', 10);
+        if (curr > maxCols) {
+          node.dataset.gridColumn = String(maxCols);
+          node.style.gridColumn = `span ${maxCols}`;
+          buttons.forEach(b => {
+            const active = parseInt(b.getAttribute('data-span'), 10) === maxCols;
+            b.classList.toggle('active', active);
+            b.setAttribute('aria-checked', String(active));
+          });
+        }
+      }
+    };
+
+    updateEnabledState();
+
+    const obs = new MutationObserver(updateEnabledState);
+    obs.observe(parentContainer, {
+      attributes: true,
+      attributeFilter: ['data-layout', 'data-cols', 'style']
+    });
+
+    // Track for cleanup
+    this._observers.set('gridSpan', obs);
+  }
+
+  /**
+   * Apply and render layout option controls
+   */
+  applyLayoutOptions(node, type, container) {
+    container.innerHTML = '';
+    
+    const children = node.querySelector('.children');
+    if (!children) return;
+
+    if (type === 'grid') {
+      this._renderGridOptions(node, children, container);
+    } else if (type === 'flex') {
+      this._renderFlexOptions(node, children, container);
     }
+  }
+
+  /**
+   * Render grid layout options
+   */
+  _renderGridOptions(node, children, container) {
+    // Initialize columns if not set
+    if (!node.dataset.cols) {
+      if (['section', 'form'].includes(node.dataset.variant)) {
+        node.dataset.cols = '4';
+      } else if (node.dataset.variant === 'card') {
+        node.dataset.cols = '1';
+      } else {
+        node.dataset.cols = '3';
+      }
+    }
+
+    children.style.display = 'grid';
+    children.style.flexDirection = '';
+    const current = node.dataset.cols;
+    children.style.gridTemplateColumns = `repeat(${current}, 1fr)`;
+
+    // Create columns selector
+    const group = this._createFormGroup('Columns');
+    const radioGroup = document.createElement('div');
+    radioGroup.className = 'segmented';
+    radioGroup.setAttribute('role', 'radiogroup');
+    radioGroup.setAttribute('aria-label', 'Grid Columns');
+
+    for (let i = 1; i <= 4; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'seg-btn';
+      btn.setAttribute('data-cols', String(i));
+      btn.setAttribute('role', 'radio');
+      btn.setAttribute('aria-checked', String(i === parseInt(current)));
+      btn.setAttribute('aria-label', `${i} columns`);
+      if (i === parseInt(current)) btn.classList.add('active');
+      btn.textContent = String(i);
+
+      btn.addEventListener('click', () => {
+        node.dataset.cols = String(i);
+        children.style.gridTemplateColumns = `repeat(${i}, 1fr)`;
+        radioGroup.querySelectorAll('.seg-btn').forEach(b => {
+          const active = b === btn;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-checked', String(active));
+        });
+        this.refreshOverlays();
+      });
+
+      radioGroup.appendChild(btn);
+    }
+
+    group.appendChild(radioGroup);
+    container.appendChild(group);
+  }
+
+  /**
+   * Render flex layout options
+   */
+  _renderFlexOptions(node, children, container) {
+    children.style.display = 'flex';
+    children.style.gridTemplateColumns = '';
+
+    const group = this._createFormGroup('Flex Direction');
+    const select = document.createElement('select');
+    select.id = 'prop-flex-dir';
+
+    const directions = [
+      { value: 'row', label: 'Row' },
+      { value: 'column', label: 'Column' }
+    ];
+
+    directions.forEach(dir => {
+      const opt = document.createElement('option');
+      opt.value = dir.value;
+      opt.textContent = dir.label;
+      select.appendChild(opt);
+    });
+
+    select.value = node.dataset.flexDir || 'row';
+    children.style.flexDirection = select.value;
+
+    select.addEventListener('change', () => {
+      node.dataset.flexDir = select.value;
+      children.style.flexDirection = select.value;
+      this.refreshOverlays();
+    });
+
+    group.appendChild(select);
+    container.appendChild(group);
+  }
+
+  /**
+   * Bind layout option events (called when layout changes)
+   */
+  bindLayoutOptionEvents(node) {
+    // Layout options already have events bound via applyLayoutOptions
+    // This is a hook for any additional binding if needed
+  }
+
+  /**
+   * Apply button style classes
+   */
+  _applyButtonStyle(node, style) {
+    node.classList.remove('btn-secondary', 'btn-tertiary', 'btn-icon');
+    if (style === 'secondary') node.classList.add('btn-secondary');
+    else if (style === 'tertiary') node.classList.add('btn-tertiary');
+    else if (style === 'icon') node.classList.add('btn-icon');
+  }
+
+  /**
+   * Clear all observers
+   */
+  _clearObservers() {
+    this._observers.forEach(obs => obs.disconnect?.());
+    this._observers.clear();
+  }
+
+  /**
+   * Cleanup
+   */
+  dispose() {
+    this._clearObservers();
+    this.currentNode = null;
+    this.container = null;
+    this.editor = null;
   }
 }
