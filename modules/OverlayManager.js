@@ -2,6 +2,7 @@
 // Overlay Manager
 // ===============================
 // Manages selection, hover, and drop overlays
+
 class OverlayManager {
   constructor(editor) {
     this.editor = editor;
@@ -45,9 +46,9 @@ class OverlayManager {
     this.dropRect = document.createElement('div');
     this.dropRect.id = 'dropRect';
     this.dropRect.style.position = 'absolute';
-    this.dropRect.style.background = 'rgba(121, 40, 225, 0.05)';
+    this.dropRect.style.background = window.CONSTANTS?.OVERLAY?.BACKGROUND?.DROP || 'rgba(121, 40, 225, 0.05)';
     this.dropRect.style.pointerEvents = 'none';
-    this.dropRect.style.zIndex = '999998';
+    this.dropRect.style.zIndex = window.CONSTANTS?.OVERLAY?.Z_INDEX?.DROP || '999998';
     this.dropRect.hidden = true;
     this.canvas.appendChild(this.dropRect);
     
@@ -81,7 +82,7 @@ class OverlayManager {
     const parent = this.canvas;
     const targetRect = el.getBoundingClientRect();
     const parentRect = parent.getBoundingClientRect();
-    const offset = 1;
+    const offset = window.CONSTANTS?.OVERLAY?.OFFSET || 1;
     
     // Base rectangle in canvas coordinates
     let rect = {

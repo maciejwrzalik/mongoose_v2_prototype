@@ -1,6 +1,7 @@
 // ===============================
 // Core Component Classes
 // ===============================
+
 class NodeComponent {
   constructor(kind, variant, name = null) {
     this.id = 'n_' + Math.random().toString(36).slice(2, 9);
