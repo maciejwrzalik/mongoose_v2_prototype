@@ -558,6 +558,43 @@ input, button {
   padding: 0 8px;
 }
 
+.radio-group-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.radio-group-wrapper label.comp-label {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.radio-group-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radio-group-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1.4;
+  user-select: none;
+}
+.radio-group-option input[type=radio].comp-body {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.radio-group-option span {
+  color: #111827;
+}
+
 button.comp-body {
   background-color: #0072ED;
   color: #fff;
