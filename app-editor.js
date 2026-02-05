@@ -9,10 +9,9 @@ class Editor {
     this.tree = new TreeView(document.getElementById('tree'), this);
     this.properties = new PropertiesPanel(document.getElementById('propertiesContent'), this);
     
-    // Initialize overlay manager
+    // Initialize managers
     this.overlayManager = new OverlayManager(this);
-    
-    // Initialize drag & drop manager
+    this.selectionManager = new SelectionManager(this);
     this.dragDropManager = new DragDropManager(this);
     
     // Legacy references for backward compatibility
@@ -21,7 +20,18 @@ class Editor {
     this.dropRect = this.overlayManager.dropRect;
     this.layoutBadge = this.overlayManager.layoutBadge;
 
-    this.selectedNode = null;
+    // Delegate selectedNode to SelectionManager
+    Object.defineProperty(this, 'selectedNode', {
+      get: () => this.selectionManager.selectedNode,
+      set: (value) => {
+        if (value) {
+          this.selectionManager.selectNode(value);
+        } else {
+          this.selectionManager.clearSelection();
+        }
+      }
+    });
+
     this.currentDropTarget = null;
 
     this.initEvents();
@@ -257,12 +267,15 @@ class Editor {
     this.canvas.addEventListener('mousemove', (e) => this.onCanvasHover(e));
     this.canvas.addEventListener('click', (e) => {
       const node = e.target.closest('[data-id]');
-      if (node) this.selectNode(node);
-      else this.clearSelection();
+      if (node) {
+        this.selectionManager.selectNode(node);
+      } else {
+        this.selectionManager.clearSelection();
+      }
     });
 
-    document.getElementById('btn-delete').addEventListener('click', () => this.deleteSelected());
-    document.getElementById('btn-select-parent').addEventListener('click', () => this.selectParent());
+    document.getElementById('btn-delete').addEventListener('click', () => this.selectionManager.deleteSelected());
+    document.getElementById('btn-select-parent').addEventListener('click', () => this.selectionManager.selectParent());
 
     document.getElementById('toggle-section-borders').addEventListener('change', (e) => {
       const checked = e.target.checked;
@@ -281,11 +294,25 @@ class Editor {
         // Let native editing/navigation happen inside inputs/properties
         return;
       }
-      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.deleteSelected(); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); this.selectParent(); }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); this.moveSelected('left'); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); this.moveSelected('right'); }
-      if (e.key === 'Escape') this.clearSelection();
+      if (e.key === 'Delete' || e.key === 'Backspace') { 
+        e.preventDefault(); 
+        this.selectionManager.deleteSelected(); 
+      }
+      if (e.key === 'ArrowUp') { 
+        e.preventDefault(); 
+        this.selectionManager.selectParent(); 
+      }
+      if (e.key === 'ArrowLeft') { 
+        e.preventDefault(); 
+        this.selectionManager.moveSelected('left'); 
+      }
+      if (e.key === 'ArrowRight') { 
+        e.preventDefault(); 
+        this.selectionManager.moveSelected('right'); 
+      }
+      if (e.key === 'Escape') {
+        this.selectionManager.clearSelection();
+      }
     });
 
     // Scroll overlays with scroll container (throttled)
@@ -328,65 +355,30 @@ class Editor {
     // Use elementFromPoint to ensure we capture topmost underlying element even if overlays present
     const elUnder = document.elementFromPoint(e.clientX, e.clientY);
     const node = elUnder && elUnder.closest('[data-id]');
-    if(node && node !== this.selectedNode){
+    const selected = this.selectionManager.selectedNode;
+    if(node && node !== selected){
       this.placeOverlay(this.hoverRect,this.rectTo(node));
       this.showOverlay(this.hoverRect,true);
-    } else if(!node || node===this.selectedNode){
+    } else if(!node || node===selected){
       this.showOverlay(this.hoverRect,false);
     }
   }
 
+  // Legacy wrapper methods for backward compatibility
   selectNode(node){
-    this.selectedNode=node;
-    // attach scroll listeners to ancestors of the selected node
-    if (node) this.overlayManager.attachAncestorScroll(node);
-    this.placeOverlay(this.selectedRect,this.rectTo(node));
-    this.showOverlay(this.selectedRect,true);
-    this.updateLayoutBadge();
-    this.tree.syncSelection();
-    this.properties.show(node);
-    this._injectIconPicker?.(node); // inject after panel renders (also syncs visual)
-    // normalize button label span on selection
-    if (node?.dataset?.variant === 'button') {
-      const btn = node.matches('button.comp-body') ? node : node.querySelector('button.comp-body') || node;
-      if (btn) {
-        // ensure icon visual and label span exist
-        const hasIcon = !!btn.dataset.icon;
-        // reuse helpers via closure
-        (function(hBtn){ 
-          // depends on the helpers declared in constructor scope
-          // no-op if unavailable
-        })(btn);
-      }
-    }
+    this.selectionManager.selectNode(node);
   }
 
   clearSelection(){
-    this.selectedNode=null;
-    this.overlayManager.detachAncestorScroll();
-    this.showOverlay(this.selectedRect,false);
-    this.layoutBadge.hidden = true;
-    this.tree.syncSelection();
-    this.properties.show(null);
+    this.selectionManager.clearSelection();
   }
 
   deleteSelected(){
-    if(!this.selectedNode)return;
-    const parent=this.selectedNode.parentElement.closest('[data-id]');
-    this.selectedNode.remove();
-    this.clearSelection();
-    if(!this.canvas.querySelector('[data-id]'))
-      this.canvas.insertAdjacentHTML('afterbegin','<div class="empty-hint">Drop a <b>Section</b> here. Then add cards/components inside.</div>');
-    if(parent)this.selectNode(parent);
-    this.tree.update();
-    this.showOverlay(this.hoverRect,false);
-    this.showOverlay(this.selectedRect,false);
+    this.selectionManager.deleteSelected();
   }
 
   selectParent(){
-    if(!this.selectedNode)return;
-    const parent=this.selectedNode.parentElement.closest('[data-id]');
-    if(parent)this.selectNode(parent);
+    this.selectionManager.selectParent();
   }
 
   // Legacy wrapper methods for backward compatibility
@@ -400,22 +392,11 @@ class Editor {
 
   // Legacy wrapper method for backward compatibility
   updateLayoutBadge() {
-    this.overlayManager.updateLayoutBadge(this.selectedNode);
+    this.overlayManager.updateLayoutBadge(this.selectionManager.selectedNode);
   }
 
   moveSelected(direction) {
-    if (!this.selectedNode) return;
-    const parent = this.selectedNode.parentElement;
-    if (!parent) return;
-    const siblings = [...parent.children];
-    const idx = siblings.indexOf(this.selectedNode);
-    if (direction === "left" && idx > 0) {
-      parent.insertBefore(this.selectedNode, siblings[idx - 1]);
-    } else if (direction === "right" && idx < siblings.length - 1) {
-      parent.insertBefore(this.selectedNode, siblings[idx + 1].nextSibling);
-    }
-    this.tree.update();
-    this.overlayManager.syncOverlays();
+    this.selectionManager.moveSelected(direction);
   }
 
   createNodeFromPayload(kind, variant) {
