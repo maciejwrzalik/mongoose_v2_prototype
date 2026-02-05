@@ -253,4 +253,24 @@ class OverlayManager {
       this.dropRect.hidden = true;
     }
   }
+  
+  /**
+   * Cleanup resources
+   */
+  dispose() {
+    // Detach all scroll listeners
+    this.detachAncestorScroll();
+    
+    // Clear ancestor handlers
+    this._ancestorScrollHandlers.clear();
+    this._scrollAncestors = [];
+    
+    // Clear references
+    this.editor = null;
+    this.canvas = null;
+    this.hoverRect = null;
+    this.selectedRect = null;
+    this.dropRect = null;
+    this.layoutBadge = null;
+  }
 }

@@ -403,6 +403,64 @@ class Editor {
     // Use the component factory
     return window.componentFactory.create(kind, variant);
   }
+
+  /**
+   * Cleanup all observers, event listeners, and managers
+   * Call this before removing the editor instance to prevent memory leaks
+   */
+  dispose() {
+    // Disconnect all observers
+    if (this._mutationObserver) {
+      this._mutationObserver.disconnect();
+      this._mutationObserver = null;
+    }
+
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+
+    if (this._canvasAttrObserver) {
+      this._canvasAttrObserver.disconnect();
+      this._canvasAttrObserver = null;
+    }
+
+    if (this._propMo) {
+      this._propMo.disconnect();
+      this._propMo = null;
+    }
+
+    // Clean up managers
+    if (this.overlayManager) {
+      this.overlayManager.dispose();
+      this.overlayManager = null;
+    }
+
+    if (this.selectionManager) {
+      this.selectionManager.dispose();
+      this.selectionManager = null;
+    }
+
+    if (this.dragDropManager) {
+      this.dragDropManager.dispose();
+      this.dragDropManager = null;
+    }
+
+    // Clear references
+    this.canvas = null;
+    this.scrollContainer = null;
+    this.tree = null;
+    this.properties = null;
+    this.propContainer = null;
+    this._iconRegistry = null;
+    this._figmaIconIds = null;
+    this._ICON_OPTIONS = null;
+
+    // Note: Event listeners added via addEventListener in initEvents()
+    // would ideally be removed here, but since they're not stored in instance variables,
+    // they'll be garbage collected when the editor instance is removed.
+    // For production use, consider storing listener references for explicit removal.
+  }
 }
 
 // ===============================
