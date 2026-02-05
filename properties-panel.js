@@ -267,11 +267,12 @@ class PropertiesPanel {
    * Render properties for Header component
    */
   _renderHeader(node) {
-    const group = this._createFormGroup('Header Content');
+    const group = this._createFormGroup('Title');
     const input = document.createElement('input');
-    input.id = 'prop-header-content';
+    input.id = 'prop-header-title';
     input.type = 'text';
-    input.value = node.textContent || 'Header';
+    const titleEl = node.querySelector('.header-title');
+    input.value = titleEl ? titleEl.textContent : 'Header';
     group.appendChild(input);
     this.container.appendChild(group);
   }
@@ -510,6 +511,21 @@ class PropertiesPanel {
             const val = dgTitleInput.value.trim() || 'Datagrid';
             node.dataset.name = val;
             dgTitleEl.textContent = val;
+            this.refreshOverlays();
+          }
+        });
+      }
+    }
+
+    // Header title
+    if (variant === 'header') {
+      const headerTitleInput = document.getElementById('prop-header-title');
+      if (headerTitleInput) {
+        headerTitleInput.addEventListener('input', () => {
+          const titleEl = node.querySelector('.header-title');
+          if (titleEl) {
+            const val = headerTitleInput.value.trim() || 'Header';
+            titleEl.textContent = val;
             this.refreshOverlays();
           }
         });
