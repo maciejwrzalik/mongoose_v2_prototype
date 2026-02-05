@@ -12,6 +12,9 @@ class Editor {
     // Initialize overlay manager
     this.overlayManager = new OverlayManager(this);
     
+    // Initialize drag & drop manager
+    this.dragDropManager = new DragDropManager(this);
+    
     // Legacy references for backward compatibility
     this.hoverRect = this.overlayManager.hoverRect;
     this.selectedRect = this.overlayManager.selectedRect;
@@ -219,16 +222,6 @@ class Editor {
     // === end icon picker + registry ===
   }
 
-  static onPaletteDragStart(e) {
-    const t = e.target.closest('.item');
-    if (!t) return;
-    const payload = { kind: t.dataset.kind, variant: t.dataset.variant };
-    e.dataTransfer.setData('application/x-editor-item', JSON.stringify(payload));
-    e.dataTransfer.effectAllowed = 'copy';
-    // Track current drag payload so we can make dragover decisions
-    Editor.dragPayload = payload;
-  }
-
   // Provide scroll container for overlay sync (canvas-wrap or canvas fallback)
   getScrollContainer() {
     return this.scrollContainer || this.canvas;
@@ -260,8 +253,7 @@ class Editor {
   }
 
   initEvents() {
-    this.canvas.addEventListener('dragover', (e) => this.onCanvasDragOver(e));
-    this.canvas.addEventListener('drop', (e) => this.onCanvasDrop(e));
+    // Hover and selection events (DragDropManager handles drag/drop)
     this.canvas.addEventListener('mousemove', (e) => this.onCanvasHover(e));
     this.canvas.addEventListener('click', (e) => {
       const node = e.target.closest('[data-id]');
@@ -300,15 +292,6 @@ class Editor {
     this.getScrollContainer().addEventListener('scroll', () => this.overlayManager.scheduleOverlaySync(), { passive: true });
     window.addEventListener('resize', () => this.overlayManager.syncOverlays());
 
-    window.addEventListener('dragover',e=>e.preventDefault());
-    window.addEventListener('drop',e=>{
-      if(!e.dataTransfer.types.includes('application/x-editor-item')) e.preventDefault();
-      // Clear tracked payload after any drop ends
-      Editor.dragPayload = null;
-    });
-
-    window.addEventListener('dragend',()=>{ Editor.dragPayload = null; });
-
     // Viewport toggle: default desktop
     const viewport = document.getElementById('viewport-toggle');
     if(viewport){
@@ -339,183 +322,6 @@ class Editor {
         });
       });
     }
-  }
-
-  onCanvasDragOver(e) {
-    e.preventDefault();
-    if(!e.dataTransfer.types.includes('application/x-editor-item')) return;
-    e.dataTransfer.dropEffect='copy';
-    const elUnder=document.elementFromPoint(e.clientX,e.clientY);
-    let container=elUnder&&elUnder.closest('.node');
-    const payload = Editor.dragPayload;
-    if(!(container&&container.classList.contains('container-node'))){
-      // Allow canvas root drop for Section, Form, Tabs, Header, and Datagrid
-      const allowRootDrop = !!(payload && (
-        (payload.kind==='container' && (payload.variant==='section' || payload.variant==='form')) ||
-        (payload.kind==='component' && (payload.variant==='datagrid' || payload.variant==='tabs' || payload.variant==='header'))
-      ));
-      if(allowRootDrop){
-        container=this.canvas;
-      } else {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        e.dataTransfer.dropEffect='none';
-        return;
-      }
-    }
-
-    const targetEl = container===this.canvas ? this.canvas : container;
-
-    // Header: only allowed at root and only one instance
-    if (payload && payload.kind==='component' && payload.variant==='header') {
-      const exists = !!this.canvas.querySelector('[data-variant="header"]');
-      const atRoot = (targetEl === this.canvas);
-      if (exists || !atRoot) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        e.dataTransfer.dropEffect='none';
-        return;
-      }
-    }
-
-    // If target is a Header, only allow dropping Button components inside it
-    if (payload && container && container.dataset && container.dataset.variant === 'header') {
-      const isButton = (payload.kind==='component' && payload.variant==='button');
-      if (!isButton) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        e.dataTransfer.dropEffect='none';
-        return;
-      }
-    }
-
-    const insideForm = this.isInsideForm(targetEl);
-    const inHeader = !!(container && container.dataset && container.dataset.variant === 'header');
-
-    // Enforce: form components only inside a Form subtree
-    // EXCEPTION: allow Button dropped into Header (even if not inside a Form)
-    if (payload && payload.kind==='component' && ['input','button','radiogroup'].includes(payload.variant)) {
-      const allowButtonInHeader = (payload.variant === 'button' && inHeader);
-      if (!insideForm && !allowButtonInHeader) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        e.dataTransfer.dropEffect='none';
-        return;
-      }
-    }
-
-    // If target is inside a Form subtree, only allow: Section, Text, Input, Button, RadioGroup
-    if (insideForm && payload) {
-      const isAllowedInForm =
-        (payload.kind === 'container' && payload.variant === 'section') ||
-        (payload.kind === 'component' && ['text','input','button','radiogroup'].includes(payload.variant));
-      if (!isAllowedInForm) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        e.dataTransfer.dropEffect='none';
-        return;
-      }
-    }
-
-    const rect = this.rectTo(container);
-    this.placeOverlay(this.dropRect, rect);
-    this.showOverlay(this.dropRect,true);
-    this.currentDropTarget=container===this.canvas?this.canvas:container.querySelector(':scope > .children');
-  }
-
-  onCanvasDrop(e) {
-    e.preventDefault();
-    const raw=e.dataTransfer.getData('application/x-editor-item'); if(!raw) return;
-    const {kind,variant}=JSON.parse(raw);
-    // If target is the root canvas, only allow Sections, Forms, Tabs, Header, and Datagrids
-    if(this.currentDropTarget===this.canvas){
-      if(!((kind==='container' && (variant==='section' || variant==='form')) ||
-           (kind==='component' && (variant==='datagrid' || variant==='tabs' || variant==='header')))){
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        return;
-      }
-    }
-
-    // Header constraints
-    if (variant==='header') {
-      // Only one header total
-      if (this.canvas.querySelector('[data-variant="header"]')) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        return;
-      }
-    }
-
-    const targetEl = this.currentDropTarget || this.canvas;
-
-    // If dropping into a Header, only allow Button components
-    if (targetEl && targetEl.closest) {
-      const headerHost =
-        (this.currentDropTarget !== this.canvas) &&
-        this.currentDropTarget &&
-        this.currentDropTarget.parentElement &&
-        this.currentDropTarget.parentElement.dataset?.variant === 'header';
-      if (headerHost && !(kind==='component' && variant==='button')) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        return;
-      }
-    }
-
-    const insideForm = this.isInsideForm(targetEl);
-
-    // Enforce: form components only inside a Form subtree (including descendants)
-    // EXCEPTION: allow Button inside Header even if not in Form
-    if (kind==='component' && ['input','button','radiogroup'].includes(variant)) {
-      const headerHost =
-        (this.currentDropTarget !== this.canvas) &&
-        this.currentDropTarget &&
-        this.currentDropTarget.parentElement &&
-        this.currentDropTarget.parentElement.dataset?.variant === 'header';
-      const allowButtonInHeader = headerHost && variant === 'button';
-      if (!insideForm && !allowButtonInHeader) {
-        this.showOverlay(this.dropRect,false);
-        this.currentDropTarget=null;
-        return;
-      }
-    }
-
-    let nodeComp = this.createNodeFromPayload(kind, variant);
-    if(!nodeComp) return;
-
-    // Set default styles for Header's initial buttons:
-    if (variant === 'header') {
-      const btns = nodeComp.el.querySelectorAll('[data-variant="button"]');
-      if (btns[0]) {
-        btns[0].classList.remove('btn-secondary','btn-tertiary','btn-icon');
-        btns[0].classList.add('btn-tertiary');
-        btns[0].dataset.btnStyle = 'tertiary';
-      }
-      if (btns[1]) {
-        btns[1].classList.remove('btn-secondary','btn-tertiary','btn-icon');
-        btns[1].classList.add('btn-icon');
-        btns[1].dataset.btnStyle = 'icon';
-      }
-    }
-
-    if(!this.currentDropTarget){ this.showOverlay(this.dropRect,false); return; }
-
-    // Place Header as the first element in the canvas
-    if (variant==='header') {
-      // Insert before the first dataset child (ignores overlays/empty-hint)
-      const firstDataChild = [...this.canvas.children].find(c => c.dataset && c.dataset.id);
-      if (firstDataChild) this.canvas.insertBefore(nodeComp.el, firstDataChild);
-      else this.canvas.appendChild(nodeComp.el);
-    } else {
-      this.currentDropTarget.appendChild(nodeComp.el);
-    }
-
-    this.canvas.querySelector('.empty-hint')?.remove();
-    this.showOverlay(this.dropRect,false);
-    this.selectNode(nodeComp.el);
-    this.tree.update();
-    Editor.dragPayload = null;
   }
 
   onCanvasHover(e){
@@ -616,15 +422,6 @@ class Editor {
     // Use the component factory
     return window.componentFactory.create(kind, variant);
   }
-
-  isInsideForm(el) {
-    let node = el;
-    while (node && node !== this.canvas) {
-      if (node.dataset && node.dataset.variant === 'form') return true;
-      node = node.parentElement;
-    }
-    return false;
-  }
 }
 
 // ===============================
@@ -632,9 +429,7 @@ class Editor {
 // ===============================
 window.addEventListener('DOMContentLoaded',()=>{
   window.__editor=new Editor();
-  document.querySelectorAll('.palette .item').forEach(item=>{
-    item.addEventListener('dragstart', Editor.onPaletteDragStart);
-  });
+  // DragDropManager now handles palette drag start events
 });
 
 // --- Form support late-patch block ---
