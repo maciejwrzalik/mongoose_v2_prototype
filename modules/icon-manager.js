@@ -31,8 +31,13 @@ class IconManager {
   }
   
   _init() {
-    // Kick off async icon loading
-    this._loadSvgIcons();
+    // Pre-populate registry with icon file paths (will be verified during load)
+    Object.entries(this._iconFiles).forEach(([name, path]) => {
+      this._iconRegistry[name] = `url('${path}')`;
+    });
+    
+    // Verify SVG files exist (optional validation)
+    this._validateSvgIcons();
     
     // Initialize existing buttons
     this._initializeExistingButtons();
@@ -42,30 +47,18 @@ class IconManager {
   }
   
   /**
-   * Load icons from assets folder SVG files
+   * Validate that SVG icons are accessible
    */
-  async _loadSvgIcons() {
-    const entries = Object.entries(this._iconFiles);
-    for (const [name, path] of entries) {
+  async _validateSvgIcons() {
+    for (const [name, path] of Object.entries(this._iconFiles)) {
       try {
         const response = await fetch(path);
-        if (!response.ok) continue;
-        
-        const svg = await response.text();
-        if (typeof svg !== 'string' || !svg.includes('<svg')) continue;
-        
-        // Store file path for CSS background-image
-        this._iconRegistry[name] = `url('${path}')`;
-      } catch (_) {
-        // Ignore errors, fallback to static or none
+        if (!response.ok) {
+          console.warn(`Icon file not found: ${path}`);
+        }
+      } catch (err) {
+        console.warn(`Error accessing icon ${name}: ${err.message}`);
       }
-    }
-    
-    // Update options after loading
-    if (Object.keys(this._iconRegistry).length) {
-      this._ICON_OPTIONS = Object.keys(this._iconRegistry);
-      // Rebuild picker for current selection if applicable
-      this.injectIconPicker(this.editor.selectedNode);
     }
   }
   
@@ -85,9 +78,18 @@ class IconManager {
     if (iconName) {
       vis.classList.remove('is-placeholder');
       vis.textContent = '';
+      
+      // Apply the icon background-image
+      const filePath = this._iconRegistry[iconName];
+      if (filePath) {
+        vis.style.setProperty('--icon-url', filePath);
+      } else {
+        vis.style.removeProperty('--icon-url');
+      }
     } else {
       vis.classList.add('is-placeholder');
       vis.textContent = '⋯';
+      vis.style.removeProperty('--icon-url');
     }
     
     // Also ensure a label span exists
@@ -184,19 +186,26 @@ class IconManager {
         node.classList.add('btn-icon');
         node.dataset.btnStyle = 'icon';
         
-        // Apply SVG file path via CSS variable
-        const filePath = this._iconRegistry[v];
-        if (filePath) {
-          node.style.setProperty('--icon-url', filePath);
-        } else {
-          node.style.removeProperty('--icon-url');
-        }
-        
         this.ensureIconVisual(node, v);
+        
+        // Apply SVG file path via CSS variable on the visual span
+        const vis = node.querySelector('.btn-icon-visual');
+        if (vis) {
+          const filePath = this._iconRegistry[v];
+          if (filePath) {
+            vis.style.setProperty('--icon-url', filePath);
+          } else {
+            vis.style.removeProperty('--icon-url');
+          }
+        }
       } else {
         delete node.dataset.icon;
-        node.style.removeProperty('--icon-url');
         this.ensureIconVisual(node, null);
+        
+        const vis = node.querySelector('.btn-icon-visual');
+        if (vis) {
+          vis.style.removeProperty('--icon-url');
+        }
       }
       
       resume();
@@ -213,7 +222,8 @@ class IconManager {
   _initializeExistingButtons() {
     document.querySelectorAll('button.comp-body').forEach(btn => {
       const hasIcon = !!btn.dataset.icon;
-      this.ensureIconVisual(btn, hasIcon ? btn.dataset.icon : null);
+      const iconName = btn.dataset.icon || null;
+      this.ensureIconVisual(btn, iconName);
       this.ensureLabelSpan(btn);
     });
   }
