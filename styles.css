@@ -38,11 +38,11 @@ input, button {
   font-weight: normal;
   margin: 0;
 }
-.header > .children {
+.header > .buttons {
   margin-left: auto;
   display: inline-flex !important;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .palette {

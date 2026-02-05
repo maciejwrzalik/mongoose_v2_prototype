@@ -424,6 +424,11 @@ class PropertiesPanel {
         styleSelect.addEventListener('change', () => {
           this._applyButtonStyle(node, styleSelect.value);
           node.dataset.btnStyle = styleSelect.value;
+          if (styleSelect.value === 'icon' && !node.dataset.icon) {
+            node.dataset.icon = 'more';
+            this.editor?.iconManager?.ensureIconVisual(node, 'more');
+            this.editor?.iconManager?.injectIconPicker(node);
+          }
           this.refreshOverlays();
         });
         // Apply initial style
@@ -592,7 +597,9 @@ class PropertiesPanel {
     if (!parentContainer) return;
 
     const updateEnabledState = () => {
-      const parentChildren = parentContainer.querySelector('.children');
+      const parentChildren = parentContainer.querySelector(
+        parentContainer.dataset?.variant === 'header' ? '.buttons' : '.children'
+      );
       const styleDisplay = parentChildren ? getComputedStyle(parentChildren).display : '';
       const layoutAttr = parentContainer.dataset.layout || 'grid';
       const isGrid = (layoutAttr === 'grid') && (styleDisplay === 'grid');
@@ -648,7 +655,9 @@ class PropertiesPanel {
   applyLayoutOptions(node, type, container) {
     container.innerHTML = '';
     
-    const children = node.querySelector('.children');
+    const children = node.querySelector(
+      node.dataset?.variant === 'header' ? '.buttons' : '.children'
+    );
     if (!children) return;
 
     if (type === 'grid') {

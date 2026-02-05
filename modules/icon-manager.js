@@ -17,6 +17,7 @@ class IconManager {
       delete: 'assets/delete.svg',
       'insert-image': 'assets/insert-image.svg',
       inventory: 'assets/inventory.svg',
+      more: 'assets/more.svg',
       print: 'assets/print.svg',
       save: 'assets/save.svg',
       url: 'assets/url.svg',
@@ -24,6 +25,7 @@ class IconManager {
     };
     
     this._ICON_OPTIONS = Object.keys(this._iconFiles);
+    this._DEFAULT_ICON = 'more';
     this._suspendIconInject = false;
     this._propMo = null;
     
@@ -148,7 +150,13 @@ class IconManager {
     // Sync existing picker
     if (existingGrp) {
       const sel = existingGrp.querySelector('#prop-btn-icon');
-      if (sel) sel.value = node.dataset.icon || '';
+      if (sel) {
+        if (isIconStyle && !node.dataset.icon) {
+          node.dataset.icon = this._DEFAULT_ICON;
+          this.ensureIconVisual(node, this._DEFAULT_ICON);
+        }
+        sel.value = node.dataset.icon || '';
+      }
       return;
     }
     
@@ -169,6 +177,10 @@ class IconManager {
     container.appendChild(grp);
     
     const sel = grp.querySelector('#prop-btn-icon');
+    if (isIconStyle && !node.dataset.icon) {
+      node.dataset.icon = this._DEFAULT_ICON;
+      this.ensureIconVisual(node, this._DEFAULT_ICON);
+    }
     sel.value = node.dataset.icon || '';
     
     // Prevent inject during interaction

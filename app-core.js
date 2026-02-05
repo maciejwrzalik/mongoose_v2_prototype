@@ -63,7 +63,9 @@ class TreeView {
       e.stopPropagation();
       this.editor.selectNode(node);
     });
-    const childrenContainer = node.querySelector(':scope > .children');
+    const childrenContainer = node.querySelector(
+      variant === 'header' ? ':scope > .buttons' : ':scope > .children'
+    );
     if (childrenContainer) {
       const validChildren = [...childrenContainer.children].filter(c => c.dataset && c.dataset.id);
       if (validChildren.length) {

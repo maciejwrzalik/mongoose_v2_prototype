@@ -90,7 +90,9 @@ class DragDropManager {
     this.editor.showOverlay(this.editor.dropRect, true);
     this.currentDropTarget = container === this.canvas ? 
       this.canvas : 
-      container.querySelector(':scope > .children');
+      container.querySelector(
+        container.dataset?.variant === 'header' ? ':scope > .buttons' : ':scope > .children'
+      );
   }
   
   onCanvasDrop(e) {
@@ -247,14 +249,24 @@ class DragDropManager {
     const btns = nodeComp.el.querySelectorAll('[data-variant="button"]');
     if (btns[0]) {
       btns[0].classList.remove('btn-secondary', 'btn-tertiary', 'btn-icon');
-      btns[0].classList.add('btn-tertiary');
-      btns[0].dataset.btnStyle = 'tertiary';
+      btns[0].dataset.btnStyle = 'primary';
     }
     if (btns[1]) {
       btns[1].classList.remove('btn-secondary', 'btn-tertiary', 'btn-icon');
       btns[1].classList.add('btn-icon');
       btns[1].dataset.btnStyle = 'icon';
     }
+    if (btns[2]) {
+      btns[2].classList.remove('btn-secondary', 'btn-tertiary', 'btn-icon');
+      btns[2].classList.add('btn-icon');
+      btns[2].dataset.btnStyle = 'icon';
+    }
+    btns.forEach((btn) => {
+      if (btn.dataset.btnStyle === 'icon') {
+        if (!btn.dataset.icon) btn.dataset.icon = 'more';
+        this.editor.iconManager?.ensureIconVisual(btn, btn.dataset.icon || 'more');
+      }
+    });
   }
   
   _insertHeaderNode(nodeComp) {

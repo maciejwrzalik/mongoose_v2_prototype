@@ -102,11 +102,11 @@ input, button { font: 16px/1.4 "Source Sans Pro", helvetica, arial, sans-serif; 
   }
 
   // Buttons area aligned right; override generic container grid
-  > .children {
+  > .buttons {
     margin-left: auto;
     display: inline-flex !important;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
   }
 }
 
