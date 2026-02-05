@@ -50,7 +50,9 @@ class SelectionManager {
     }
     
     // Inject icon picker for buttons (if available)
-    this.editor._injectIconPicker?.(node);
+    if (this.editor.iconManager) {
+      this.editor.iconManager.injectIconPicker(node);
+    }
     
     // Normalize button label span on selection
     if (node?.dataset?.variant === 'button') {

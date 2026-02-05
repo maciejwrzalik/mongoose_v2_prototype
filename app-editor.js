@@ -13,6 +13,8 @@ class Editor {
     this.overlayManager = new OverlayManager(this);
     this.selectionManager = new SelectionManager(this);
     this.dragDropManager = new DragDropManager(this);
+    this.keyboardManager = new KeyboardManager(this);
+    this.iconManager = new IconManager(this);
     
     // Legacy references for backward compatibility
     this.hoverRect = this.overlayManager.hoverRect;
@@ -55,181 +57,6 @@ class Editor {
     // Observe canvas attribute changes that affect layout (e.g., data-vw)
     this._canvasAttrObserver = new MutationObserver(() => this.overlayManager.scheduleOverlaySync());
     this._canvasAttrObserver.observe(this.canvas, { attributes: true, attributeFilter: ['data-vw', 'style'] });
-
-    // === Icon picker + Figma registry ===
-    this.propContainer = document.getElementById('propertiesContent');
-    this._iconRegistry = {}; // name -> dataUrl
-    // Figma symbol IDs from #get_design_context
-    this._figmaIconIds = {
-      compose: '111:12315',
-      delete: '111:12333',
-      'insert-image': '111:12324', // fix: quote hyphenated key
-      inventory: '111:12359',
-      print: '111:12370',
-      save: '111:12402',
-      url: '111:12365',
-      'user-profile': '111:12411'
-    };
-    this._ICON_OPTIONS = Object.keys(this._figmaIconIds);
-    this._suspendIconInject = false;
-
-    this._loadFigmaIcons = async () => {
-      if (typeof window.get_design_context !== 'function') return; // fallback to static
-      const entries = Object.entries(this._figmaIconIds);
-      for (const [name, id] of entries) {
-        try {
-          // MUST call get_design_context on nodes individually
-          const ctx = await window.get_design_context(id);
-          // Try common shapes of returned payloads for SVG markup
-          let svg = ctx?.svg || ctx?.content || ctx?.node?.svg || ctx?.node?.content || '';
-          if (typeof svg !== 'string' || !svg.includes('<svg')) continue;
-          // Normalize viewBox/size is assumed correct in Figma (18x18)
-          const encoded = encodeURIComponent(svg).replace(/%23/g, '%2523'); // double-escape # for CSS url()
-          this._iconRegistry[name] = `url('data:image/svg+xml;utf8,${encoded}')`;
-        } catch (_) { /* ignore; fallback stays */ }
-      }
-      // If loaded anything, refresh options and current picker
-      if (Object.keys(this._iconRegistry).length) {
-        this._ICON_OPTIONS = Object.keys(this._iconRegistry);
-        // Rebuild picker for current selection if applicable
-        this._injectIconPicker?.(this.selectedNode);
-      }
-    };
-    // Kick off async load (no await needed)
-    this._loadFigmaIcons();
-
-    // Helper: ensure visual span exists on a button and set placeholder/icon
-    const ensureIconVisual = (btn, iconName) => {
-      let vis = btn.querySelector('.btn-icon-visual');
-      if (!vis) {
-        vis = document.createElement('span');
-        vis.className = 'btn-icon-visual';
-        btn.prepend(vis);
-      }
-      if (iconName) {
-        vis.classList.remove('is-placeholder');
-        vis.textContent = '';
-      } else {
-        vis.classList.add('is-placeholder');
-        vis.textContent = '⋯';
-      }
-      // also ensure a label span exists
-      ensureLabelSpan(btn);
-    };
-
-    // Helper: wrap button label text into a <span class="btn-label">
-    const ensureLabelSpan = (btn) => {
-      if (!btn || !btn.matches('button.comp-body')) return;
-      // do not descend into nested components; only direct text nodes
-      let labelEl = btn.querySelector(':scope > .btn-label');
-      if (!labelEl) {
-        // Gather direct text from text nodes (ignore icon span)
-        let text = '';
-        [...btn.childNodes].forEach(n => {
-          if (n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()) {
-            text += n.nodeValue.trim();
-            n.nodeValue = ''; // strip raw text
-          }
-        });
-        labelEl = document.createElement('span');
-        labelEl.className = 'btn-label';
-        labelEl.textContent = text || btn.getAttribute('data-label') || btn.dataset.name || 'Button';
-        btn.appendChild(labelEl);
-      }
-    };
-
-    this._injectIconPicker = (node) => {
-      const container = this.propContainer || document.getElementById('propertiesContent');
-      if (!container) return;
-
-      const isButton = !!(node && node.dataset && node.dataset.variant === 'button');
-      const isIconStyle =
-        isButton && (
-          (node.dataset.btnStyle || '').toLowerCase() === 'icon' ||
-          node.classList.contains('btn-icon') ||
-          node.getAttribute('data-btn-style') === 'icon'
-        );
-
-      const existingGrp = container.querySelector('#btn-icon-group');
-      if (existingGrp) {
-        if (!isIconStyle) { existingGrp.remove(); return; }
-        // Sync only
-        const sel = existingGrp.querySelector('#prop-btn-icon');
-        if (sel) sel.value = node.dataset.icon || '';
-        return;
-      }
-      if (!isIconStyle) return;
-
-      const grp = document.createElement('div');
-      grp.className = 'form-group';
-      grp.id = 'btn-icon-group';
-      grp.innerHTML = `
-        <label for="prop-btn-icon">Icon</label>
-        <select id="prop-btn-icon">
-          <option value="">(none)</option>
-          ${this._ICON_OPTIONS.map(n => `<option value="${n}">${n}</option>`).join('')}
-        </select>
-      `;
-      container.appendChild(grp);
-
-      const sel = grp.querySelector('#prop-btn-icon');
-      sel.value = node.dataset.icon || '';
-
-      const suspend = () => { this._suspendIconInject = true; };
-      const resume = () => { setTimeout(() => { this._suspendIconInject = false; }, 0); };
-      sel.addEventListener('pointerdown', suspend, { passive: true });
-      sel.addEventListener('mousedown', suspend, { passive: true });
-      sel.addEventListener('blur', resume);
-
-      sel.addEventListener('change', () => {
-        const v = sel.value;
-        if (v) {
-          node.dataset.icon = v;
-          node.classList.add('btn-icon');
-          node.dataset.btnStyle = 'icon';
-          // Apply Figma-loaded mask (if available) via CSS variable
-          const dataUrl = this._iconRegistry[v];
-          if (dataUrl) node.style.setProperty('--icon-mask', dataUrl);
-          else node.style.removeProperty('--icon-mask');
-          ensureIconVisual(node, v);
-        } else {
-          delete node.dataset.icon;
-          node.style.removeProperty('--icon-mask');
-          ensureIconVisual(node, null);
-        }
-        resume();
-        this.scheduleOverlaySync();
-      });
-
-      // Sync current visual on open
-      ensureIconVisual(node, node.dataset.icon || null);
-    };
-
-    // Initialize placeholders and label spans for any existing buttons
-    document.querySelectorAll('button.comp-body').forEach(btn => {
-      const hasIcon = !!btn.dataset.icon;
-      ensureIconVisual(btn, hasIcon ? btn.dataset.icon : null);
-      ensureLabelSpan(btn);
-    });
-
-    if (this.propContainer) {
-      this._propMo?.disconnect?.();
-      this._propMo = new MutationObserver(() => {
-        if (this._suspendIconInject) return;
-        requestAnimationFrame(() => {
-          this._injectIconPicker(this.selectedNode);
-          // normalize selected button label after panel changes
-          if (this.selectedNode?.dataset?.variant === 'button') ensureLabelSpan(this.selectedNode);
-        });
-      });
-      this._propMo.observe(this.propContainer, { childList: true, subtree: true });
-      this.propContainer.addEventListener('change', () => {
-        if (this._suspendIconInject) return;
-        this._injectIconPicker(this.selectedNode);
-        if (this.selectedNode?.dataset?.variant === 'button') ensureLabelSpan(this.selectedNode);
-      });
-    }
-    // === end icon picker + registry ===
   }
 
   // Provide scroll container for overlay sync (canvas-wrap or canvas fallback)
@@ -285,35 +112,7 @@ class Editor {
       });
     });
 
-    document.addEventListener('keydown', (e) => {
-      const t = e.target;
-      const tag = t && t.tagName ? t.tagName.toLowerCase() : '';
-      const isEditable = t && (t.isContentEditable || ['input', 'textarea', 'select'].includes(tag));
-      const inPropertiesPanel = !!(t && t.closest && t.closest('.properties'));
-      if (isEditable || inPropertiesPanel) {
-        // Let native editing/navigation happen inside inputs/properties
-        return;
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') { 
-        e.preventDefault(); 
-        this.selectionManager.deleteSelected(); 
-      }
-      if (e.key === 'ArrowUp') { 
-        e.preventDefault(); 
-        this.selectionManager.selectParent(); 
-      }
-      if (e.key === 'ArrowLeft') { 
-        e.preventDefault(); 
-        this.selectionManager.moveSelected('left'); 
-      }
-      if (e.key === 'ArrowRight') { 
-        e.preventDefault(); 
-        this.selectionManager.moveSelected('right'); 
-      }
-      if (e.key === 'Escape') {
-        this.selectionManager.clearSelection();
-      }
-    });
+    // KeyboardManager now handles all keyboard shortcuts
 
     // Scroll overlays with scroll container (throttled)
     this.getScrollContainer().addEventListener('scroll', () => this.overlayManager.scheduleOverlaySync(), { passive: true });
@@ -425,11 +224,6 @@ class Editor {
       this._canvasAttrObserver = null;
     }
 
-    if (this._propMo) {
-      this._propMo.disconnect();
-      this._propMo = null;
-    }
-
     // Clean up managers
     if (this.overlayManager) {
       this.overlayManager.dispose();
@@ -446,15 +240,21 @@ class Editor {
       this.dragDropManager = null;
     }
 
+    if (this.keyboardManager) {
+      this.keyboardManager.dispose();
+      this.keyboardManager = null;
+    }
+
+    if (this.iconManager) {
+      this.iconManager.dispose();
+      this.iconManager = null;
+    }
+
     // Clear references
     this.canvas = null;
     this.scrollContainer = null;
     this.tree = null;
     this.properties = null;
-    this.propContainer = null;
-    this._iconRegistry = null;
-    this._figmaIconIds = null;
-    this._ICON_OPTIONS = null;
 
     // Note: Event listeners added via addEventListener in initEvents()
     // would ideally be removed here, but since they're not stored in instance variables,
