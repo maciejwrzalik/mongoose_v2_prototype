@@ -112,6 +112,7 @@ class SelectionManager {
    */
   deleteSelected() {
     if (!this._selectedNode) return;
+    if (this._selectedNode.dataset?.locked === 'true') return;
     
     const parent = this._selectedNode.parentElement.closest('[data-id]');
     this._selectedNode.remove();

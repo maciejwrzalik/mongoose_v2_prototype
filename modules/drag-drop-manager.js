@@ -75,7 +75,18 @@ class DragDropManager {
       }
     }
     
-    const targetEl = container === this.canvas ? this.canvas : container;
+    let targetEl = container === this.canvas ? this.canvas : container;
+    let dropRectTarget = container;
+    if (container !== this.canvas && container.dataset?.variant === 'splitter') {
+      const panel = elUnder && elUnder.closest('.splitter-panel')
+        ? elUnder.closest('.splitter-panel')
+        : container.querySelector('.splitter-panel');
+      if (panel) {
+        const panelChildren = panel.querySelector(':scope > .children') || panel;
+        targetEl = panelChildren;
+        dropRectTarget = panel;
+      }
+    }
     
     // Validate drop
     if (!this._validateDrop(payload, container, targetEl)) {
@@ -85,7 +96,7 @@ class DragDropManager {
     }
     
     // Show drop indicator
-    const rect = this.editor.rectTo(container);
+    const rect = this.editor.rectTo(dropRectTarget || container);
     this.editor.placeOverlay(this.editor.dropRect, rect);
     this.editor.showOverlay(this.editor.dropRect, true);
     this.currentDropTarget = container === this.canvas ? 
@@ -93,6 +104,9 @@ class DragDropManager {
       container.querySelector(
         container.dataset?.variant === 'header' ? ':scope > .buttons' : ':scope > .children'
       );
+    if (container.dataset?.variant === 'splitter' && targetEl !== this.canvas) {
+      this.currentDropTarget = targetEl;
+    }
   }
   
   onCanvasDrop(e) {
@@ -177,7 +191,7 @@ class DragDropManager {
     if (!payload) return false;
     
     return (
-      (payload.kind === 'container' && (payload.variant === 'section' || payload.variant === 'form')) ||
+      (payload.kind === 'container' && (payload.variant === 'section' || payload.variant === 'form' || payload.variant === 'splitter')) ||
       (payload.kind === 'component' && (payload.variant === 'datagrid' || payload.variant === 'tabs' || payload.variant === 'header'))
     );
   }
@@ -188,6 +202,15 @@ class DragDropManager {
     // Header: only allowed at root and only one instance
     if (payload.kind === 'component' && payload.variant === 'header') {
       const exists = !!this.canvas.querySelector('[data-variant="header"]');
+      const atRoot = (targetEl === this.canvas);
+      if (exists || !atRoot) {
+        return false;
+      }
+    }
+    
+    // Splitter: only allowed at root and only one instance
+    if (payload.kind === 'container' && payload.variant === 'splitter') {
+      const exists = !!this.canvas.querySelector('[data-variant="splitter"]');
       const atRoot = (targetEl === this.canvas);
       if (exists || !atRoot) {
         return false;

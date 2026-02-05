@@ -44,8 +44,8 @@ class PropertiesPanel {
       this._addLayoutSection(node);
     }
 
-    // Add grid column span for all (except header)
-    if (variant !== 'header') {
+    // Add grid column span for all (except header and splitter)
+    if (!['header', 'splitter'].includes(variant)) {
       this._addGridColumnSection(node);
     }
 

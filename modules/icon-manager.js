@@ -33,13 +33,10 @@ class IconManager {
   }
   
   _init() {
-    // Pre-populate registry with icon file paths (will be verified during load)
+    // Pre-populate registry with icon file paths
     Object.entries(this._iconFiles).forEach(([name, path]) => {
       this._iconRegistry[name] = `url('${path}')`;
     });
-    
-    // Verify SVG files exist (optional validation)
-    this._validateSvgIcons();
     
     // Initialize existing buttons
     this._initializeExistingButtons();
@@ -48,21 +45,6 @@ class IconManager {
     this._setupPropertyPanelObserver();
   }
   
-  /**
-   * Validate that SVG icons are accessible
-   */
-  async _validateSvgIcons() {
-    for (const [name, path] of Object.entries(this._iconFiles)) {
-      try {
-        const response = await fetch(path);
-        if (!response.ok) {
-          console.warn(`Icon file not found: ${path}`);
-        }
-      } catch (err) {
-        console.warn(`Error accessing icon ${name}: ${err.message}`);
-      }
-    }
-  }
   
   /**
    * Ensure visual span exists on a button and set placeholder/icon

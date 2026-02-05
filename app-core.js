@@ -63,16 +63,29 @@ class TreeView {
       e.stopPropagation();
       this.editor.selectNode(node);
     });
-    const childrenContainer = node.querySelector(
-      variant === 'header' ? ':scope > .buttons' : ':scope > .children'
-    );
-    if (childrenContainer) {
-      const validChildren = [...childrenContainer.children].filter(c => c.dataset && c.dataset.id);
-      if (validChildren.length) {
+    if (variant === 'splitter') {
+      const panels = node.querySelectorAll(':scope > .splitter-panel > .children');
+      const panelChildren = [...panels]
+        .flatMap(p => [...p.children])
+        .filter(c => c.dataset && c.dataset.id);
+      if (panelChildren.length) {
         const ul = document.createElement('ul');
         ul.className = 'tree-children';
-        validChildren.forEach(c => ul.appendChild(this.buildTreeItem(c)));
+        panelChildren.forEach(c => ul.appendChild(this.buildTreeItem(c)));
         li.appendChild(ul);
+      }
+    } else {
+      const childrenContainer = node.querySelector(
+        variant === 'header' ? ':scope > .buttons' : ':scope > .children'
+      );
+      if (childrenContainer) {
+        const validChildren = [...childrenContainer.children].filter(c => c.dataset && c.dataset.id);
+        if (validChildren.length) {
+          const ul = document.createElement('ul');
+          ul.className = 'tree-children';
+          validChildren.forEach(c => ul.appendChild(this.buildTreeItem(c)));
+          li.appendChild(ul);
+        }
       }
     }
     return li;

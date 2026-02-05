@@ -23,6 +23,7 @@ class ComponentFactory {
     this.register('section', Section);
     this.register('card', Card);
     this.register('form', Form);
+    this.register('splitter', Splitter);
     
     // Register components
     this.register('text', TextComponent);
