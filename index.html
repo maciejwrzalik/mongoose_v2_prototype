@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Drag & Drop Editor</title>
+  <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Palette + Tree -->
+    <div class="palette">
+      <h2>Library</h2>
+
+      <!-- Group: Containers -->
+      <div class="group">
+        <div class="group-title">Containers</div>
+        <div class="item-list">
+          <div class="item" draggable="true" data-kind="container" data-variant="section">
+            Section <span class="tag">container</span>
+          </div>
+          <div class="item" draggable="true" data-kind="container" data-variant="card">
+            Card <span class="tag">container</span>
+          </div>
+          <div class="item" draggable="true" data-kind="container" data-variant="form">
+            Form <span class="tag">container</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group: Form components -->
+      <div class="group">
+        <div class="group-title">Form components</div>
+        <div class="item-list">
+          <div class="item" draggable="true" data-kind="component" data-variant="input">
+            Input <span class="tag">component</span>
+          </div>
+          <div class="item" draggable="true" data-kind="component" data-variant="text">
+            Text <span class="tag">component</span>
+          </div>
+          <div class="item" draggable="true" data-kind="component" data-variant="button">
+            Button <span class="tag">component</span>
+          </div>
+          <div class="item" draggable="true" data-kind="component" data-variant="radiogroup">
+            Radio Group <span class="tag">component</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group: Components -->
+      <div class="group">
+        <div class="group-title">Components</div>
+        <div class="item-list">
+          <div class="item" draggable="true" data-kind="component" data-variant="tabs">
+            Tabs <span class="tag">component</span>
+          </div>
+          <div class="item" draggable="true" data-kind="component" data-variant="header">
+            Header <span class="tag">component</span>
+          </div>
+          <div class="item" draggable="true" data-kind="component" data-variant="datagrid">
+            Data grid <span class="tag">component</span>
+          </div>
+          <div class="item" draggable="true" data-kind="component" data-variant="list">
+            List <span class="tag">component</span>
+          </div>
+        </div>
+      </div>
+
+      <h2>Document</h2>
+      <ul class="tree-list" id="tree"></ul>
+    </div>
+
+    <!-- Workspace -->
+    <div class="workspace">
+      <div class="toolbar">
+        <button id="btn-select-parent" class="btn">Select Parent</button>
+        <button id="btn-delete" class="btn danger">Delete</button>
+
+        <!-- ✅ Toggle for section borders -->
+        <label class="switch">
+          <input type="checkbox" id="toggle-section-borders" checked />
+          <span>Show Section Borders</span>
+        </label>
+
+        <!-- ✅ Viewport width segmented control -->
+        <div id="viewport-toggle" class="segmented" role="radiogroup" aria-label="Viewport width">
+          <button type="button" class="seg-btn" data-width="100%" role="radio" aria-checked="true">Desktop</button>
+          <button type="button" class="seg-btn" data-width="768" role="radio" aria-checked="false">Tablet</button>
+          <button type="button" class="seg-btn" data-width="360" role="radio" aria-checked="false">Mobile</button>
+        </div>
+
+        <span class="tip">Use ← → to reorder</span>
+      </div>
+      <div class="canvas-wrap">
+        <div class="canvas" id="canvas">
+          <div class="empty-hint">
+            Drop a <b>Section</b> or <b>Form</b> here. Then add cards/components inside.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Properties -->
+    <div class="properties">
+      <h2>Properties</h2>
+      <div id="propertiesContent" class="content">
+        <p class="muted">Select an element to edit its properties.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlays -->
+  <div id="hoverRect" class="overlay-rect hover" hidden></div>
+  <div id="selectedRect" class="overlay-rect selected" hidden></div>
+
+  <script src="app-core.js"></script>
+  <!-- Managers -->
+  <script src="modules/OverlayManager.js"></script>
+  <!-- Components split out -->
+  <script src="components/Section.js"></script>
+  <script src="components/Card.js"></script>
+  <script src="components/Form.js"></script>
+  <script src="components/TextComponent.js"></script>
+  <script src="components/ButtonComponent.js"></script>
+  <script src="components/InputComponent.js"></script>
+  <script src="components/RadioGroupComponent.js"></script>
+  <script src="components/DatagridComponent.js"></script>
+  <script src="components/TabsComponent.js"></script>
+  <script src="components/HeaderComponent.js"></script>
+  <script src="components/ListComponent.js"></script>
+  <script src="properties-panel.js"></script>
+  <!-- Editor last -->
+  <script src="app-editor.js"></script>
+</body>
+</html>

@@ -1,0 +1,765 @@
+@use 'sass:color';
+
+// Variables
+$bg-light: #F5F5F5;
+$fg-normal: #161618;
+
+$border-dark: #BBBBBF;
+$border-light: #E0E0E1;
+$selection-color: #7928E1;
+
+$action-color: #0072ED;
+
+$bg: #f9fafb;
+$panel: #ffffff;
+$muted: #6b7280;
+$text: #111827;
+$accent: #2563eb;
+$accent-2: #06b6d4;
+$danger: #dc2626;
+$border: $border-dark;
+
+// Mixins
+@mixin panel {
+  background: $panel;
+  border: 1px solid $border;
+  border-radius: 8px;
+}
+
+@mixin button($bg: $panel, $color: $text, $border-color: $border) {
+  border: 1px solid $border-color;
+  background: $bg;
+  color: $color;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  &:hover { background: lighten($bg, 3%); }
+}
+
+@mixin tag {
+  font-size: 10px;
+  letter-spacing: .06em;
+  color: $muted;
+  background: $bg;
+  padding: 3px 6px;
+  border: 1px solid $border;
+  border-radius: 999px;
+}
+
+// Section headers used in palette & properties
+@mixin section-header {
+  font-size: 14px;
+  background-color: $bg-light;
+  border-bottom: 1px solid $border-light;
+  margin: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+@mixin component-title {
+  font-size: 20px;
+  font-weight: 400;
+  height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+// Global
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  margin: 0;
+  background: $bg;
+  color: $fg-normal;
+  font: 14px/1.4 "Source Sans Pro", helvetica, arial, sans-serif;
+}
+
+input, button { font: 16px/1.4 "Source Sans Pro", helvetica, arial, sans-serif; }
+
+.app {
+  display: grid;
+  grid-template-columns: 260px 1fr 280px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+// Header component
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 24px;
+  border-bottom: 1px solid $border-light;
+
+  h1.header-title {
+    font-size: 20px;
+    font-weight: normal;
+    margin: 0; // left-aligned by default
+  }
+
+  // Buttons area aligned right; override generic container grid
+  > .children {
+    margin-left: auto;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+// Palette & Tree
+.palette {
+  border-right: 1px solid $border;
+  background: $panel;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+
+  h2 { @include section-header; }
+
+  .group {
+    .group-title {
+      padding-left: 12px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+  }
+
+  .item-list {
+    
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+
+    .item {
+      user-select: none;
+      padding: 10px 12px;
+      border: 1px dashed $border;
+      background: lighten($bg, 2%);
+      border-radius: 10px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform .05s ease;
+
+      &:active { cursor: grabbing; transform: scale(.98); }
+      .tag { @include tag; }
+    }
+  }
+
+  #tree, .tree-list {
+    font-size: 13px;
+    list-style: none;
+    padding: 0 12px;
+    margin: 0;
+
+    .tree-item {
+      padding: 4px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:hover { background: rgba(0,0,0,.05); }
+      &.selected { background: rgba($accent, .15); }
+    }
+
+    .tree-children {
+      margin-left: 14px;
+      padding-left: 8px;
+      border-left: 1px dashed $border;
+    }
+
+    // Row containing icon + label
+    .tree-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0; // allow label to ellipsize
+    }
+    .tree-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      background-color: currentColor; // colorize mask
+      -webkit-mask-size: contain;
+      -webkit-mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-size: contain;
+      mask-position: center;
+      mask-repeat: no-repeat;
+      color: $accent; // default (overridden by kind)
+    }
+    .tree-icon.is-container { color: $accent; }
+    .tree-icon.is-component { color: $accent-2; }
+
+    // SVG masks (16x16 viewBox) encoded as data URIs
+    // Containers
+    .tree-icon.is-container.v-section {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+    }
+    .tree-icon.is-container.v-card {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+    }
+    // Add: Form icon same as section
+    .tree-icon.is-container.v-form {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+    }
+    // Generic container fallback
+    .tree-icon.is-container {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="3" y="4" width="10" height="8" rx="2" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="3" y="4" width="10" height="8" rx="2" fill="%23000"/></svg>');
+    }
+
+    // Components
+    .tree-icon.is-component.v-text {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="3" y="4.2" width="10" height="1.3" fill="%23000"/><rect x="3" y="7.2" width="8" height="1.3" fill="%23000"/><rect x="3" y="10.2" width="6" height="1.3" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="3" y="4.2" width="10" height="1.3" fill="%23000"/><rect x="3" y="7.2" width="8" height="1.3" fill="%23000"/><rect x="3" y="10.2" width="6" height="1.3" fill="%23000"/></svg>');
+    }
+    .tree-icon.is-component.v-button {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="3" y="5" width="10" height="6" rx="3" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="3" y="5" width="10" height="6" rx="3" fill="%23000"/></svg>');
+    }
+    .tree-icon.is-component.v-input {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="5" width="12" height="6" rx="1.6" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="5" width="12" height="6" rx="1.6" fill="%23000"/></svg>');
+    }
+      .tree-icon.is-component.v-datagrid {
+        -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+                mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="%23000"/></svg>');
+      }
+    // Generic component fallback
+    .tree-icon.is-component {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4" fill="%23000"/></svg>');
+    }
+    .tree-icon.is-component.v-list {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="2" fill="%23000"/><rect x="5" y="3" width="9" height="2" fill="%23000"/><rect x="2" y="7" width="2" height="2" fill="%23000"/><rect x="5" y="7" width="9" height="2" fill="%23000"/><rect x="2" y="11" width="2" height="2" fill="%23000"/><rect x="5" y="11" width="9" height="2" fill="%23000"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="2" fill="%23000"/><rect x="5" y="3" width="9" height="2" fill="%23000"/><rect x="2" y="7" width="2" height="2" fill="%23000"/><rect x="5" y="7" width="9" height="2" fill="%23000"/><rect x="2" y="11" width="2" height="2" fill="%23000"/><rect x="5" y="11" width="9" height="2" fill="%23000"/></svg>');
+    }
+  }
+}
+
+// Segmented control for grid columns
+.segmented {
+  display: inline-flex;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f7f7f9;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
+  .seg-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 4px 10px;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    line-height: 1.2;
+    color: #444;
+    position: relative;
+    transition: background .15s, color .15s;
+    & + .seg-btn { border-left: 1px solid #ccc; }
+    &:hover { background: #e6eaf0; }
+    &.active { background: #2563eb; color: #fff; }
+    &:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; z-index: 1; }
+    &:disabled { cursor: not-allowed; opacity: .5; }
+  }
+  &.is-disabled { opacity: .6; filter: grayscale(0.2); }
+}
+
+// Workspace
+.workspace {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid $border;
+    background: lighten($bg, 2%);
+
+    .btn { @include button(); }
+    .btn.danger { @include button(#fee2e2, #b91c1c, #fecaca); }
+
+    .tip { margin-left: auto; color: $muted; }
+
+    // ✅ Switch for section borders
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: $muted;
+      input { cursor: pointer; }
+    }
+  }
+
+  .canvas-wrap {
+    position: relative;
+    overflow: auto;
+    background: #E0E0E1;
+
+    .canvas {
+      position: relative;
+      min-height: 100%;
+      background: $panel;
+      border-radius: 2px;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+      
+      display: flex;
+      flex-direction: column;
+      gap: 0; 
+      margin: 8px;
+      
+      max-width: none;
+      &[data-vw="desktop"] {max-width: none;}
+      &[data-vw="tablet"] { margin:8px auto; width: 768px;  }
+      &[data-vw="mobile"] { margin:8px auto; width: 360px; }
+
+      .empty-hint {
+        color: $muted;
+        border: 1px dashed $border;
+        background: $bg;
+        padding: 26px;
+        width: 80%;
+        margin: 0 auto;
+        text-align: center;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 4px;
+      }
+
+      > .section-node {
+        margin: 24px 24px 0 24px;
+      }
+    }
+  }
+}
+
+// Nodes
+.node {
+  position: relative;
+  margin: 0;
+  min-height: 40px;
+
+  .node {
+    margin: 0;
+  }
+}
+
+// Datagrid styles
+.datagrid-wrapper {
+  display: grid;
+  gap: 0;
+}
+.datagrid-title {
+  @include component-title;
+}
+.datagrid-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 14px;
+
+  thead th {
+    text-align: left;
+  // Checkbox column
+  th.dg-select-col, td.dg-select-col {
+    width: 36px;
+    text-align: center;
+    padding: 0;
+  }
+  input.dg-select, input.dg-select-all {
+    pointer-events: none; // non-interactive
+    cursor: default;
+    opacity: .7; // slight mute to indicate disabled
+  }
+    background: #F5F5F5;
+    border: 1px solid $border-light;
+    padding: 6px 12px;
+  }
+  tbody td {
+    border: 1px solid $border-light;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+}
+
+// Shared container styles
+.container-node {
+  > .children {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+// Section-specific
+.section-node {
+  background: lighten($bg, 2%);
+  outline: 1px dashed color.change($selection-color, $alpha: 0.3);   // ✅ outline instead of border
+
+  &.hide-borders {
+    outline: none;                // ✅ just hide outline
+    background: lighten($bg, 2%); // keep background consistent
+  }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 400;
+    color: $text;
+    background: transparent;
+    margin: 0 0 16px 0;
+  }
+}
+
+// Card-specific
+.card-node {
+  background: $panel;
+  border: 1px solid $border-dark;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  border-radius: 8px;
+  min-height: 300px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  overflow: hidden;
+
+  .label {
+    @include component-title;
+    padding: 12px;
+    flex: 0 0 56px;     
+  }
+
+  > .children {
+    flex: 1 1 auto;          
+    min-height: 0;            
+    overflow: auto; 
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+// Overlays
+.overlay-rect {
+  position: absolute;
+  pointer-events: none;
+  z-index: 999999;
+  border-radius: 2px;
+
+  &.hover { border: 2px solid $selection-color; }
+  &.selected { border: 1px solid $selection-color; }
+
+  // Layout badge on selected rectangle
+  &.selected {
+    position: absolute;
+    .layout-badge {
+      position: absolute;
+      top: -1px; // float slightly above the top border, like a tag
+      right: -1px; // align with right border
+      background: $selection-color;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 0 2px 0 4px;
+      pointer-events: none;
+      text-transform: uppercase;
+    }
+  }
+}
+
+// Properties Panel
+.properties {
+  border-left: 1px solid $border;
+  background: $panel;
+  overflow: visible; // allow native selects to show popup
+  .content {
+    padding: 8px 12px;
+    overflow: visible; // allow children to overflow too
+  }
+
+  h2 { @include section-header; }
+
+  .muted { color: $muted; }
+
+  .prop-subsection {
+    margin: 16px 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: $muted;
+    border-top: 1px solid $border-light;
+    padding-top: 8px;
+  }
+
+  .form-group {
+    margin-bottom: 12px;
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: $muted;
+    }
+    input, select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid $border;
+      background: $panel;
+      color: $text;
+      
+      &[type='checkbox'] {
+        width: auto;
+        transform: scale(1.2);
+      }
+    }
+    // Make disabled inputs in properties visually distinct (grayish, muted)
+    input[disabled] {
+      background: #f3f4f6; // light gray background
+      color: $muted;       // muted text color
+      border-color: $border-light;
+      cursor: not-allowed;
+      opacity: 1; // keep readability while still appearing disabled
+    }
+  }
+}
+
+#dropIndicator {
+  position: absolute;
+  height: 2px;
+  background: #2563eb;
+  pointer-events: none;
+  z-index: 999999;
+}
+
+.input-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  label { font-size: 16px; line-height: 1.4; }
+  input { width: 100%; height: 38px; padding: 0 8px; }
+}
+
+button.comp-body {
+  background-color: $action-color;
+  color: #fff;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  display: inline-block;
+  padding: 0 12px;
+  align-self: end;
+  justify-self: start;
+  font-weight: 500;
+  border: 1px solid transparent;
+  letter-spacing: 0.5px;
+}
+
+// Button style variants
+button.comp-body.btn-secondary {
+  background: #fff;
+  color: $accent;
+  border: 1px solid $accent;
+}
+button.comp-body.btn-secondary:hover { background: #fff; }
+
+button.comp-body.btn-tertiary {
+  background: transparent;
+  color: $text;
+  border: none;
+  border: 1px solid transparent;
+}
+
+// Ensure label is a separate span and hide it in icon-style buttons
+button.comp-body .btn-label {
+  display: inline;
+}
+button.comp-body.btn-icon .btn-label {
+  display: none;
+}
+
+// Reverted: simple icon placeholder (no SVG mask, no data-icon mappings)
+button.comp-body.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  color: $text;
+  font-size: 0; // hide label text
+}
+// Kill pseudo now that we use a real child
+button.comp-body.btn-icon::before {
+  content: none !important;
+}
+
+// Child-based icon visual
+button.comp-body.btn-icon .btn-icon-visual {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  background-color: currentColor;
+  pointer-events: none;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-image: var(--icon-mask);
+          mask-image: var(--icon-mask);
+}
+
+// Placeholder state (no icon selected)
+button.comp-body.btn-icon .btn-icon-visual.is-placeholder {
+  width: auto;
+  height: auto;
+  background: none;
+  -webkit-mask-image: none;
+          mask-image: none;
+  font-size: 16px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+// Icon mappings fallback: set CSS variable from static vectors
+button.comp-body.btn-icon[data-icon="compose"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M3 12.5v2.5h2.5l7.3-7.3-2.5-2.5L3 12.5zm9.9-8.6c.2-.2.2-.5 0-.7l-1.1-1.1c-.2-.2-.5-.2-.7 0l-1 1 2.5 2.5 1.1-1.1z"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="delete"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M6 2h6l1 2h3v2H2V4h3l1-2zm-1 5h2v7H5V7zm4 0h2v7H9V7z"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="save"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M3 2h9l3 3v11H3V2zm8 1v4H5V3h6z"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="print"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.5 2H5.25H12.75H13.5V2.75V6H13.75C15.2688 6 16.5 7.23122 16.5 8.75V12.25V13H15.75H13.5V15.25V16H12.75H5.25H4.5V15.25V13H2.25H1.5V12.25V8.75C1.5 7.23122 2.73122 6 4.25 6H4.5V2.75V2ZM4.5 11.5V10.75V10H5.25H12.75H13.5V10.75V11.5H15V8.75C15 8.05964 14.4404 7.5 13.75 7.5H4.25C3.55964 7.5 3 8.05964 3 8.75V11.5H4.5ZM12 3.5V6H6V3.5H12ZM12 11.5H6V14.5H12V11.5Z" fill="%23161618"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="inventory"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M3 2h12v3H3V2zm0 5h12v9H3V7zm2 2v5h8V9H5z"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="insert-image"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M2 3h14v12H2V3zm2 2v8h10V5H4zm1 7l3-4 2 3 2-2 2 3H5z"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="url"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M7 11l1.5 1.5L6 15c-1.7 1.7-4.3 1.7-6 0s-1.7-4.3 0-6l2.5-2.5L4 8 1.5 10.5c-.8.8-.8 2.1 0 2.9.8.8 2.1.8 2.9 0L7 11zm4-4L9.5 5.5 12 3c1.7-1.7 4.3-1.7 6 0s1.7 4.3 0 6L15.5 11 14 9l2.5-2.5c.8-.8.8-2.1 0-2.9-.8-.8-2.1-.8-2.9 0L11 7zM6 12l6-6 2 2-6 6-2-2z"/></svg>');
+}
+button.comp-body.btn-icon[data-icon="user-profile"] {
+  --icon-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><path fill="%23000" d="M9 9a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0 2c-3.3 0-6 2.1-6 4.5V17h12v-1.5C15 13.1 12.3 11 9 11z"/></svg>');
+}
+
+// Tabs component
+.tabs {
+  border-bottom: 1px solid $border-light;
+
+  // Tab list strip
+  .tab-list {
+    display: flex;
+    align-items: flex-end;
+    overflow-x: auto;
+    list-style: none;
+    align-items: stretch;
+    height: 48px;
+    padding: 0;
+    margin: 0 24px;
+    margin-bottom: -1px;
+  }
+
+  // Individual tabs (buttons or elements with role=tab)
+  .tab-item {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    cursor: pointer;
+    font-size: 16px;
+    border-bottom: 1px solid transparent;
+    white-space: nowrap;
+    
+
+    &:hover { color: $text; }
+    &.active,
+    &[aria-selected="true"] {
+      color: $accent;
+      border-bottom-color: $accent;
+    }
+  }
+}
+
+// List component
+[data-variant="list"] {
+  display: block;
+
+  > .list-item {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid $border-light;
+  }
+  > .list-item:last-child { border-bottom: none; }
+
+  .list-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    object-fit: cover;
+    display: block;
+    flex: 0 0 40px;
+  }
+
+  .list-content {
+    display: grid;
+    grid-auto-rows: min-content;
+  }
+
+  .list-title {
+    font-weight: 700;
+    color: $text;
+    line-height: 1.2;
+  }
+
+  .list-sub {
+    margin-top: 2px;
+    color: $muted;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .list-line { margin: 0; }
+}
