@@ -28,6 +28,8 @@ class SelectionManager {
     }
     
     this._selectedNode = node;
+
+    // Keep hover overlay visible on selection (overlay sync will update position)
     
     // Attach scroll listeners to ancestors of the selected node
     if (this.editor.overlayManager) {
@@ -39,6 +41,11 @@ class SelectionManager {
     this.editor.placeOverlay(this.editor.selectedRect, rect);
     this.editor.showOverlay(this.editor.selectedRect, true);
     this.editor.updateLayoutBadge();
+
+    // Re-sync overlays to preserve hover marker if pointer is still over the node
+    if (this.editor.overlayManager) {
+      this.editor.overlayManager.syncOverlays();
+    }
     
     // Sync tree and properties
     if (this.editor.tree) {
@@ -73,6 +80,9 @@ class SelectionManager {
    */
   clearSelection() {
     this._selectedNode = null;
+
+    // Hide hover overlay when clearing selection
+    this.editor.showOverlay(this.editor.hoverRect, false);
     
     // Detach scroll listeners
     if (this.editor.overlayManager) {

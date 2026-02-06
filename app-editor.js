@@ -92,6 +92,13 @@ class Editor {
   initEvents() {
     // Hover and selection events (DragDropManager handles drag/drop)
     this.canvas.addEventListener('mousemove', (e) => this.onCanvasHover(e));
+    this.canvas.addEventListener('mouseleave', () => this.showOverlay(this.hoverRect, false));
+    window.addEventListener('pointermove', (e) => {
+      const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+      if (!this.canvas.contains(elUnder)) {
+        this.showOverlay(this.hoverRect, false);
+      }
+    }, { capture: true });
     this.canvas.addEventListener('click', (e) => {
       const node = e.target.closest('[data-id]');
       if (node) {
@@ -153,13 +160,15 @@ class Editor {
   onCanvasHover(e){
     // Use elementFromPoint to ensure we capture topmost underlying element even if overlays present
     const elUnder = document.elementFromPoint(e.clientX, e.clientY);
-    const node = elUnder && elUnder.closest('[data-id]');
-    const selected = this.selectionManager.selectedNode;
-    if(node && node !== selected){
-      this.placeOverlay(this.hoverRect,this.rectTo(node));
-      this.showOverlay(this.hoverRect,true);
-    } else if(!node || node===selected){
-      this.showOverlay(this.hoverRect,false);
+    let node = elUnder && elUnder.closest('[data-id]');
+    if (node && node.classList.contains('splitter-node') && !elUnder.closest('.section-node')) {
+      node = null;
+    }
+    if (node) {
+      this.placeOverlay(this.hoverRect, this.rectTo(node));
+      this.showOverlay(this.hoverRect, true);
+    } else {
+      this.showOverlay(this.hoverRect, false);
     }
   }
 
