@@ -59,6 +59,7 @@ class OverlayManager {
     
     this.canvas.addEventListener('mouseleave', () => {
       this.showOverlay(this.hoverRect, false);
+      this._lastPointer = null;
     });
   }
   
@@ -171,12 +172,16 @@ class OverlayManager {
     // Recompute hover based on last known mouse position if available
     if (this._lastPointer) {
       const elUnder = document.elementFromPoint(this._lastPointer.x, this._lastPointer.y);
-      const node = elUnder && elUnder.closest('[data-id]');
-      if (node) {
-        this.placeOverlay(this.hoverRect, this.rectTo(node));
-        this.showOverlay(this.hoverRect, true);
-      } else {
+      if (!elUnder || !this.canvas.contains(elUnder)) {
         this.showOverlay(this.hoverRect, false);
+      } else {
+        const node = elUnder.closest('[data-id]');
+        if (node) {
+          this.placeOverlay(this.hoverRect, this.rectTo(node));
+          this.showOverlay(this.hoverRect, true);
+        } else {
+          this.showOverlay(this.hoverRect, false);
+        }
       }
     }
   }
