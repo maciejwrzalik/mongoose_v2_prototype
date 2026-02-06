@@ -109,6 +109,23 @@ class OverlayManager {
     }
     return rect;
   }
+
+  // Expand a rect by delta on all sides
+  _expandRect(rect, delta) {
+    if (!rect) return rect;
+    return {
+      x: rect.x - delta,
+      y: rect.y - delta,
+      w: rect.w + delta * 2,
+      h: rect.h + delta * 2
+    };
+  }
+
+  // Get hover rect (slightly larger so thicker hover border grows outward)
+  getHoverRect(node) {
+    const base = this.rectTo(node);
+    return this._expandRect(base, 1);
+  }
   
   _intersectRects(a, b) {
     const x1 = Math.max(a.x, b.x);
@@ -177,7 +194,7 @@ class OverlayManager {
       } else {
         const node = elUnder.closest('[data-id]');
         if (node) {
-          this.placeOverlay(this.hoverRect, this.rectTo(node));
+          this.placeOverlay(this.hoverRect, this.getHoverRect(node));
           this.showOverlay(this.hoverRect, true);
         } else {
           this.showOverlay(this.hoverRect, false);
@@ -229,7 +246,7 @@ class OverlayManager {
   // Show hover overlay on specific node
   showHoverOnNode(node) {
     if (node) {
-      this.placeOverlay(this.hoverRect, this.rectTo(node));
+      this.placeOverlay(this.hoverRect, this.getHoverRect(node));
       this.showOverlay(this.hoverRect, true);
     } else {
       this.showOverlay(this.hoverRect, false);

@@ -165,7 +165,8 @@ class Editor {
       node = null;
     }
     if (node) {
-      this.placeOverlay(this.hoverRect, this.rectTo(node));
+      const rect = this.overlayManager ? this.overlayManager.getHoverRect(node) : this.rectTo(node);
+      this.placeOverlay(this.hoverRect, rect);
       this.showOverlay(this.hoverRect, true);
     } else {
       this.showOverlay(this.hoverRect, false);
