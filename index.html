@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <title>Drag & Drop Editor</title>
+  <script>
+    (function () {
+      const isGhPages = location.hostname.endsWith('github.io');
+      const baseHref = isGhPages
+        ? '/mongoose_v2_prototype/'
+        : location.href.replace(/[^/]*$/, '');
+      const base = document.createElement('base');
+      base.href = baseHref;
+      document.head.appendChild(base);
+    })();
+  </script>
   <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
