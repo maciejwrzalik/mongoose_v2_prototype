@@ -328,7 +328,60 @@ window.addEventListener('DOMContentLoaded',()=>{
     list.forEach((el) => el.classList.add('container', 'section', 'form'));
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  const COMPONENT_LOCAL_BASE = new URL('components/', document.baseURI).href;
+  const COMPONENT_FALLBACK_BASE =
+    'https://raw.githubusercontent.com/maciejwrzalik/mongoose_v2_prototype/main/components';
+  const REQUIRED_COMPONENTS = [
+    { name: 'Section', file: 'section.js' },
+    { name: 'Card', file: 'card.js' },
+    { name: 'Form', file: 'form.js' },
+    { name: 'Splitter', file: 'splitter.js' },
+    { name: 'TextComponent', file: 'text-component.js' },
+    { name: 'ButtonComponent', file: 'button-component.js' },
+    { name: 'InputComponent', file: 'input-component.js' },
+    { name: 'RadioGroupComponent', file: 'radio-group-component.js' },
+    { name: 'DatagridComponent', file: 'datagrid-component.js' },
+    { name: 'TabsComponent', file: 'tabs-component.js' },
+    { name: 'HeaderComponent', file: 'header-component.js' },
+    { name: 'ListComponent', file: 'list-component.js' }
+  ];
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = false;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function loadWithFallback(file) {
+    try {
+      await loadScript(`${COMPONENT_LOCAL_BASE}${file}`);
+      return true;
+    } catch (localError) {
+      try {
+        await loadScript(`${COMPONENT_FALLBACK_BASE}/${file}`);
+        return true;
+      } catch (fallbackError) {
+        console.warn('Component fallback load failed.', fallbackError);
+        return false;
+      }
+    }
+  }
+
+  function ensureComponentsLoaded() {
+    const missing = REQUIRED_COMPONENTS.filter(
+      (item) => typeof window[item.name] !== 'function'
+    );
+    if (!missing.length) return Promise.resolve();
+    return Promise.all(missing.map((item) => loadWithFallback(item.file)));
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await ensureComponentsLoaded();
     // Initialize component factory
     if (window.componentFactory) {
       window.componentFactory.initialize();

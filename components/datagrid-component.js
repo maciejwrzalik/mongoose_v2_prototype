@@ -1,8 +1,9 @@
-class DatagridComponent extends NodeComponent {
-  constructor() { super('component', 'datagrid', 'Datagrid'); }
-  render() {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'datagrid-wrapper';
+if (!window.DatagridComponent) {
+  class DatagridComponent extends NodeComponent {
+    constructor() { super('component', 'datagrid', 'Datagrid'); }
+    render() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'datagrid-wrapper';
 
     const title = document.createElement('div');
     title.className = 'datagrid-title';
@@ -88,7 +89,9 @@ class DatagridComponent extends NodeComponent {
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
-    wrapper.appendChild(table);
-    return wrapper;
+      wrapper.appendChild(table);
+      return wrapper;
+    }
   }
+  window.DatagridComponent = DatagridComponent;
 }

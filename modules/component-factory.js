@@ -18,7 +18,44 @@ class ComponentFactory {
    */
   initialize() {
     if (this._initialized) return;
-    
+    const {
+      Section,
+      Card,
+      Form,
+      Splitter,
+      TextComponent,
+      ButtonComponent,
+      InputComponent,
+      RadioGroupComponent,
+      DatagridComponent,
+      TabsComponent,
+      HeaderComponent,
+      ListComponent
+    } = window;
+
+    const missing = [
+      ['Section', Section],
+      ['Card', Card],
+      ['Form', Form],
+      ['Splitter', Splitter],
+      ['TextComponent', TextComponent],
+      ['ButtonComponent', ButtonComponent],
+      ['InputComponent', InputComponent],
+      ['RadioGroupComponent', RadioGroupComponent],
+      ['DatagridComponent', DatagridComponent],
+      ['TabsComponent', TabsComponent],
+      ['HeaderComponent', HeaderComponent],
+      ['ListComponent', ListComponent]
+    ].filter((entry) => typeof entry[1] !== 'function');
+
+    if (missing.length) {
+      console.warn(
+        'ComponentFactory: Missing component constructors:',
+        missing.map((entry) => entry[0]).join(', ')
+      );
+      return;
+    }
+
     // Register containers
     this.register('section', Section);
     this.register('card', Card);

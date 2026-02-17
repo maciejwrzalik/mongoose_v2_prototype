@@ -1,9 +1,10 @@
-class HeaderComponent extends NodeComponent {
-  constructor() { super('component', 'header', 'Header'); }
-  render() {
-    const wrapper = document.createElement('div');
-    // Make it a drop-capable container
-    wrapper.className = 'header node container-node';
+if (!window.HeaderComponent) {
+  class HeaderComponent extends NodeComponent {
+    constructor() { super('component', 'header', 'Header'); }
+    render() {
+      const wrapper = document.createElement('div');
+      // Make it a drop-capable container
+      wrapper.className = 'header node container-node';
 
     // Title (left)
     const title = document.createElement('h1');
@@ -41,8 +42,10 @@ class HeaderComponent extends NodeComponent {
     if (btn2) buttons.appendChild(btn2.el);
     if (btn3) buttons.appendChild(btn3.el);
 
-    wrapper.appendChild(title);
-    wrapper.appendChild(buttons);
-    return wrapper;
+      wrapper.appendChild(title);
+      wrapper.appendChild(buttons);
+      return wrapper;
+    }
   }
+  window.HeaderComponent = HeaderComponent;
 }

@@ -1,15 +1,16 @@
-class ListComponent extends NodeComponent {
-  constructor() {
-    super('component', 'list', 'List');
-  }
+if (!window.ListComponent) {
+  class ListComponent extends NodeComponent {
+    constructor() {
+      super('component', 'list', 'List');
+    }
 
-  render() {
-    const root = document.createElement('div');
-    root.setAttribute('role', 'list');
-    const products = ListComponent._generateProducts(8);
-    products.forEach((p) => root.appendChild(ListComponent._renderItem(p)));
-    return root;
-  }
+    render() {
+      const root = document.createElement('div');
+      root.setAttribute('role', 'list');
+      const products = ListComponent._generateProducts(8);
+      products.forEach((p) => root.appendChild(ListComponent._renderItem(p)));
+      return root;
+    }
 
   static _renderItem(p) {
     const item = document.createElement('div');
@@ -83,15 +84,17 @@ class ListComponent extends NodeComponent {
     }));
   }
 
-  static _thumbFor(name) {
-    const letter = (name || '?').charAt(0).toUpperCase();
-    const colors = ['#2563EB','#06B6D4','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899'];
-    const bg = colors[letter.charCodeAt(0) % colors.length];
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
-      <rect width="40" height="40" rx="6" fill="${bg}"/>
-      <text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Inter, Arial, sans-serif"
-            font-size="18" fill="#fff">${letter}</text>
-    </svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    static _thumbFor(name) {
+      const letter = (name || '?').charAt(0).toUpperCase();
+      const colors = ['#2563EB','#06B6D4','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899'];
+      const bg = colors[letter.charCodeAt(0) % colors.length];
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+        <rect width="40" height="40" rx="6" fill="${bg}"/>
+        <text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Inter, Arial, sans-serif"
+              font-size="18" fill="#fff">${letter}</text>
+      </svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    }
   }
+  window.ListComponent = ListComponent;
 }

@@ -1,9 +1,10 @@
-class Splitter extends NodeComponent {
-  constructor() { super('container', 'splitter'); }
-  render() {
-    const wrapper = super.render();
-    wrapper.classList.add('node', 'container-node', 'splitter-node', 'splitter');
-    wrapper.style.height = '100%';
+if (!window.Splitter) {
+  class Splitter extends NodeComponent {
+    constructor() { super('container', 'splitter'); }
+    render() {
+      const wrapper = super.render();
+      wrapper.classList.add('node', 'container-node', 'splitter-node', 'splitter');
+      wrapper.style.height = '100%';
 
     const leftPanel = document.createElement('div');
     leftPanel.className = 'splitter-panel splitter-left';
@@ -102,9 +103,11 @@ class Splitter extends NodeComponent {
     divider.addEventListener('pointerdown', onPointerDown);
     divider.addEventListener('mousemove', onMouseMove);
 
-    wrapper.appendChild(leftPanel);
-    wrapper.appendChild(divider);
-    wrapper.appendChild(rightPanel);
-    return wrapper;
+      wrapper.appendChild(leftPanel);
+      wrapper.appendChild(divider);
+      wrapper.appendChild(rightPanel);
+      return wrapper;
+    }
   }
+  window.Splitter = Splitter;
 }
