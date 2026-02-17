@@ -64,11 +64,19 @@ input, button {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: auto;
+  overflow: visible;
 }
 .splitter-panel > .children > .section-node {
   height: 100%;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.splitter-panel > .children > .section-node > .children {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 .splitter-divider {
@@ -414,6 +422,7 @@ input, button {
 }
 .workspace .canvas-wrap .canvas > .section-node {
   margin: 24px 24px 0 24px;
+  min-height: 220px;
 }
 .workspace .canvas-wrap .canvas > .splitter {
   margin: 0;
@@ -481,6 +490,13 @@ input, button {
 .section-node {
   background: white;
   outline: 1px dashed rgba(121, 40, 225, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  min-height: 0;
+}
+.section-node.has-padding {
+  padding: 0 24px;
 }
 .section-node.hide-borders {
   outline: none;
@@ -492,6 +508,10 @@ input, button {
   color: #111827;
   background: transparent;
   margin: 0 0 16px 0;
+}
+.section-node > .children {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .card-node {

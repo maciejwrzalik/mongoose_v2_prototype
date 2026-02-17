@@ -221,6 +221,20 @@ class PropertiesPanel {
     titleVisGroup.appendChild(titleVisLabel);
     this.container.appendChild(titleVisGroup);
 
+    // Section padding checkbox
+    const padGroup = this._createFormGroup('');
+    const padCheckbox = document.createElement('input');
+    padCheckbox.id = 'prop-section-padding';
+    padCheckbox.type = 'checkbox';
+    const padLabel = document.createElement('label');
+    padLabel.style.display = 'flex';
+    padLabel.style.alignItems = 'center';
+    padLabel.style.gap = '0.5rem';
+    padLabel.appendChild(padCheckbox);
+    padLabel.appendChild(document.createTextNode('Section Padding'));
+    padGroup.appendChild(padLabel);
+    this.container.appendChild(padGroup);
+
     // Title text
     const titleGroup = this._createFormGroup('Title Text');
     const titleInput = document.createElement('input');
@@ -235,6 +249,10 @@ class PropertiesPanel {
     const visible = node.dataset.titleVisible === 'true';
     titleVisCheckbox.checked = visible;
     if (titleEl) titleEl.hidden = !visible;
+
+    const paddingOn = node.dataset.sectionPadding === 'true';
+    padCheckbox.checked = paddingOn;
+    node.classList.toggle('has-padding', paddingOn);
   }
 
   /**
@@ -473,6 +491,7 @@ class PropertiesPanel {
     if (variant === 'section' || variant === 'form') {
       const titleVisCheckbox = document.getElementById('prop-section-title-visible');
       const titleInput = document.getElementById('prop-section-title-text');
+      const padCheckbox = document.getElementById('prop-section-padding');
       const titleEl = node.querySelector('.section-title');
 
       if (titleVisCheckbox) {
@@ -487,6 +506,14 @@ class PropertiesPanel {
         titleInput.addEventListener('input', () => {
           node.dataset.title = titleInput.value;
           if (titleEl) titleEl.textContent = titleInput.value;
+          this.refreshOverlays();
+        });
+      }
+
+      if (padCheckbox) {
+        padCheckbox.addEventListener('change', () => {
+          node.dataset.sectionPadding = String(padCheckbox.checked);
+          node.classList.toggle('has-padding', padCheckbox.checked);
           this.refreshOverlays();
         });
       }

@@ -23,6 +23,11 @@ class OverlayManager {
     // Scroll tracking
     this._scrollAncestors = [];
     this._ancestorScrollHandlers = new Map();
+
+    // Hover scroll tracking
+    this._hoverNode = null;
+    this._hoverScrollAncestors = [];
+    this._hoverScrollHandlers = new Map();
     
     this._init();
   }
@@ -176,6 +181,28 @@ class OverlayManager {
     this._scrollAncestors = [];
     this._ancestorScrollHandlers.clear();
   }
+
+  // Attach scroll listeners to ancestors of hovered node
+  attachHoverScroll(node) {
+    this.detachHoverScroll();
+    if (!node) return;
+    const ancestors = this.getScrollableAncestors(node) || [];
+    this._hoverScrollAncestors = ancestors;
+    ancestors.forEach((anc) => {
+      const handler = () => this.scheduleOverlaySync();
+      anc.addEventListener('scroll', handler, { passive: true });
+      this._hoverScrollHandlers.set(anc, handler);
+    });
+  }
+
+  detachHoverScroll() {
+    this._hoverScrollAncestors.forEach((anc) => {
+      const h = this._hoverScrollHandlers.get(anc);
+      if (h) anc.removeEventListener('scroll', h);
+    });
+    this._hoverScrollAncestors = [];
+    this._hoverScrollHandlers.clear();
+  }
   
   // Sync all overlays based on current state
   syncOverlays() {
@@ -246,9 +273,15 @@ class OverlayManager {
   // Show hover overlay on specific node
   showHoverOnNode(node) {
     if (node) {
+      if (this._hoverNode !== node) {
+        this._hoverNode = node;
+        this.attachHoverScroll(node);
+      }
       this.placeOverlay(this.hoverRect, this.getHoverRect(node));
       this.showOverlay(this.hoverRect, true);
     } else {
+      this._hoverNode = null;
+      this.detachHoverScroll();
       this.showOverlay(this.hoverRect, false);
     }
   }
@@ -286,6 +319,10 @@ class OverlayManager {
     // Clear ancestor handlers
     this._ancestorScrollHandlers.clear();
     this._scrollAncestors = [];
+
+    // Clear hover handlers
+    this.detachHoverScroll();
+    this._hoverNode = null;
     
     // Clear references
     this.editor = null;

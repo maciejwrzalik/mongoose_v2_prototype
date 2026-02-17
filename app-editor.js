@@ -164,9 +164,10 @@ class Editor {
     if (node && node.classList.contains('splitter-node') && !elUnder.closest('.section-node')) {
       node = null;
     }
-    if (node) {
-      const rect = this.overlayManager ? this.overlayManager.getHoverRect(node) : this.rectTo(node);
-      this.placeOverlay(this.hoverRect, rect);
+    if (this.overlayManager) {
+      this.overlayManager.showHoverOnNode(node);
+    } else if (node) {
+      this.placeOverlay(this.hoverRect, this.rectTo(node));
       this.showOverlay(this.hoverRect, true);
     } else {
       this.showOverlay(this.hoverRect, false);

@@ -130,11 +130,20 @@ input, button { font: 16px/1.4 "Source Sans Pro", helvetica, arial, sans-serif; 
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: auto;
+  overflow: visible;
 
   > .section-node {
     height: 100%;
     margin: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+
+    > .children {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: visible;
+    }
   }
 }
 
@@ -441,6 +450,7 @@ input, button { font: 16px/1.4 "Source Sans Pro", helvetica, arial, sans-serif; 
 
       > .section-node {
         margin: 24px 24px 0 24px;
+        min-height: 220px;
       }
 
       > .splitter {
@@ -513,6 +523,14 @@ input, button { font: 16px/1.4 "Source Sans Pro", helvetica, arial, sans-serif; 
 .section-node {
   background: lighten($bg, 2%);
   outline: 1px dashed color.change($selection-color, $alpha: 0.3);   // ✅ outline instead of border
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  min-height: 0;
+
+  &.has-padding {
+    padding: 0 24px;
+  }
 
   &.hide-borders {
     outline: none;                // ✅ just hide outline
@@ -525,6 +543,11 @@ input, button { font: 16px/1.4 "Source Sans Pro", helvetica, arial, sans-serif; 
     color: $text;
     background: transparent;
     margin: 0 0 16px 0;
+  }
+
+  > .children {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 }
 
